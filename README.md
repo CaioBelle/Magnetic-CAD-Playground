@@ -76,3 +76,9 @@ v1.9 corrections
 
 
 Browser tab icon: MagneticCAD now includes a custom favicon (magneticcad_icon.png). If the old icon persists, refresh the page or reopen the HTML file.
+
+v2.1 circular-pattern update:
+- Revolve now creates multiple radial copies rather than a single rotated copy.
+- Live translucent preview updates before applying.
+- Angular spacing = total angle / (additional copies + 1).
+- Example: 4 additional copies over 360 degrees gives 72-degree spacing.
