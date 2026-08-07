@@ -781,3 +781,15 @@ v4.9 solenoid visual rebuild
 - Side and isometric views show the individual turns cleanly and limit current-direction arrows to a readable subset.
 - The Radia helical path, physical wire radius, J x B volume integration, .magcad data, and .mfield physics metadata are unchanged.
 
+v5.0 Figure Studio solenoid depth + current arrows
+--------------------------------------------------
+- Solenoids are now depth-split in Figure Studio rather than treated as one indivisible SVG layer.
+- In automatic depth mode, every individual winding turn is separated into rear and front projected arcs; each turn-half participates independently in painter-depth ordering.
+- A magnet or other body placed through the centre of a solenoid therefore appears naturally in front of the rear arcs and behind the front arcs, including the varying depth of different turns in isometric views.
+- In manual layer mode, bodies whose centres are geometrically inside a solenoid are automatically sandwiched between that solenoid's rear and front winding passes; the solenoid's listed layer acts as the anchor.
+- The object list and selected-object layer note explicitly identify this split-depth behaviour.
+- Solenoid current arrows are no longer capped at two/six arrows. The requested Figure Studio arrow count is now sampled across the visible current path up to the normal control limit.
+- In isometric/side views, current arrows are placed on the front-visible helical portions so internal bodies do not incorrectly cover them.
+- In axial views, the requested current-arrow count is distributed around the representative ring.
+- Radia physics, .magcad serialization, and the physical solenoid geometry are unchanged.
+
