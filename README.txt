@@ -106,3 +106,10 @@ Version 2.5 history controls:
 FIGURE STUDIO (v3.0 draft)
 --------------------------
 Use the "Figure Studio" button to create publication-oriented 2D vector projections of the current CAD scene. The first draft includes Top, Front, Right and Isometric views; technical B/W, red/blue pole, monochrome and schematic presets; current and magnetization arrows; hidden lines; editable colours; and SVG/PNG export.
+
+
+Figure Studio v3.1:
+- Click objects in the figure or object list for per-object styling.
+- Magnet and coil representations can be configured independently.
+- Drawing order controls determine occlusion; arrows remain inside their source layer.
+- Automatic depth order can be restored at any time.
