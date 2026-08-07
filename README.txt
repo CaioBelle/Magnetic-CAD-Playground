@@ -1,4 +1,4 @@
-Magnetic CAD Playground v1.5
+Magnetic CAD Playground v1.9
 ================================
 
 1. Open MagneticCAD.html in Edge or Chrome.
@@ -64,3 +64,12 @@ v1.8 additions
 - Linear pattern with configurable copy count and X/Y/Z step.
 - Mirror about XY, YZ, or XZ with configurable plane offset.
 - Operation settings temporarily replace the right properties panel; Apply or Cancel restores it.
+
+
+v1.9 corrections
+----------------
+- Removed informal wording from all group-operation controls and status messages.
+- The desktop application is now constrained to the browser viewport.
+- The CAD viewport flexes to the remaining height instead of using a fixed 100vh calculation.
+- Opening the group-operation bar now shrinks the viewport inside the same window rather than pushing content below the screen.
+- Feature-tree and properties panels scroll internally when their content is taller than the available window.
