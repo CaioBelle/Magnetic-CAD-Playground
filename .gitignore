@@ -1,0 +1,9 @@
+# Magnetic CAD generated / temporary files
+*.mfield
+*_radia_solve.py
+__pycache__/
+*.py[cod]
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
