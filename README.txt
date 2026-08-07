@@ -73,3 +73,6 @@ v1.9 corrections
 - The CAD viewport flexes to the remaining height instead of using a fixed 100vh calculation.
 - Opening the group-operation bar now shrinks the viewport inside the same window rather than pushing content below the screen.
 - Feature-tree and properties panels scroll internally when their content is taller than the available window.
+
+
+Browser tab icon: MagneticCAD now includes a custom favicon (magneticcad_icon.png). If the old icon persists, refresh the page or reopen the HTML file.
