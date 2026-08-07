@@ -96,3 +96,9 @@ v2.3: stronger translucent group-operation previews; full circular construction 
 
 
 v2.4: operation previews are rebuilt as independent CAD ghost geometry. Circular, linear, and mirror previews no longer clone live materials; construction rings and lines use visible 3D geometry.
+
+
+Version 2.5 history controls:
+- Ctrl+Z or the Undo button reverses the previous CAD edit.
+- Ctrl+Y / Ctrl+Shift+Z or the Redo button reapplies it.
+- Up to 80 meaningful scene states are retained.
