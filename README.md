@@ -1,11 +1,11 @@
-MAGNETIC CAD PLAYGROUND v4.2
+MAGNETIC CAD PLAYGROUND v4.8
 ============================
 
 Standalone browser CAD, Radia export, solved-field viewer, and publication
 Figure Studio for permanent magnets and current-carrying coils.
 
 This README consolidates the current workflow and the principal changes from
-the early CAD versions through v4.2.
+the early CAD versions through v4.8.
 
 
 CONTENTS
@@ -46,12 +46,13 @@ Three.js modules are loaded from a CDN.
 Supported source bodies
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-Permanent magnet
-- Cuboid geometry.
-- Editable X/Y/Z dimensions.
-- Editable position and 3D orientation.
+Permanent magnets
+- Cuboid geometry with editable X/Y/Z dimensions.
+- Cylindrical geometry with editable radius and height.
+- Editable position and full 3D orientation for both shapes.
 - Magnetization-strength control.
-- Magnetization-direction arrows.
+- Magnetization direction is local +Z and follows the body rotation.
+- Cylindrical Radia export exposes the number of azimuth sectors.
 
 Annular coil
 - Circular winding path.
@@ -67,6 +68,12 @@ Infinite-line coil
 - A finite simulation length is entered separately in the Radia export menu.
 - The generated solver treats it as an open straight integration volume; it
   does not create an artificial return conductor.
+
+Solenoid coil
+- Explicit helical conductor wound around local Z.
+- Editable solenoid radius, axial length, current, turns, and wire radius.
+- CAD, Figure Studio, Results viewer, patterns, duplicate, mirror, and
+  .magcad save/open/import preserve the full helix geometry.
 
 General CAD operations
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -196,8 +203,11 @@ Keyboard shortcuts
    The generated Python solver creates missing parent folders when possible.
 6. Define source-specific numerical settings.
 
-   Permanent magnets
+   Cuboid permanent magnets
    - X/Y/Z subdivision.
+
+   Cylindrical permanent magnets
+   - Azimuth-sector resolution used by Radia ObjCylMag.
 
    Annular and racetrack coils
    - Along-path integration points.
@@ -209,6 +219,12 @@ Keyboard shortcuts
    - Along-path integration points.
    - Across-width repartition.
    - Across-height repartition.
+
+   Solenoid coils
+   - Along-helix integration points.
+   - Across-width repartition.
+   - Across-height repartition.
+   - The solver automatically enforces at least 12 helix points per turn.
 
 7. Download the generated *_radia_solve.py file.
 8. Run it in the main ESRF Radia Python environment:
@@ -418,7 +434,7 @@ Coil loads
 - Coils are treated as homogenised current-carrying winding volumes.
 - Force is obtained from the volume integral of J x B.
 - Torque is integrated about the coil/load reference position.
-- Annular, racetrack, and finite exported straight-line segments are supported.
+- Annular, racetrack, finite exported straight-line, and explicit helical solenoid conductors are supported.
 
 Infinite-line interpretation
 - The CAD/Figure Studio body represents an effectively infinite straight
@@ -434,10 +450,12 @@ Intentionally omitted in the current workflow
 - Full coupled electromagnetic conductor solution.
 - Ferromagnetic nonlinear material solution.
 
-Magnet subdivision
-- Magnet subdivision is exported for transparency and future material models.
-- For uniformly magnetized cuboids, the field-grid sampling is generally the
-  principal control of stored-field spatial resolution.
+Magnet source discretization
+- Cuboid subdivision is exported for transparency and future material models.
+- Cylindrical magnets use Radia ObjCylMag with a configurable azimuth-sector
+  count.
+- The X/Y/Z field-grid sampling is the principal control of the spatial
+  resolution stored in the .mfield result.
 
 Quick CAD versus solved data
 - CAD field/load previews are interactive conceptual approximations.
@@ -702,7 +720,7 @@ v4.2 - Selectable Figure Studio load arrows
 
 END OF README
 -------------
-Magnetic CAD Playground v4.2
+Magnetic CAD Playground v4.8
 
 v4.3 drawing-load independence
 ------------------------------
@@ -738,4 +756,17 @@ v4.7 legend refinement
 - Retained the horizontal divider below the title.
 - Magnet, coil, current, magnetization, Radia-field, force, and torque symbols are drawn directly in the symbol column without surrounding cells.
 - Existing transparent-background support and legend content controls are unchanged.
+
+v4.8 cylindrical magnet + solenoid
+----------------------------------
+- Added a first-class cylindrical permanent magnet alongside the original cuboid magnet.
+- Cylindrical magnets expose radius, height, polarization strength, and Radia azimuth-sector resolution.
+- Cylindrical magnets are supported by CAD transforms, resize baking, patterns, mirror, duplicate, .magcad save/open/import, Results viewer reconstruction, and Figure Studio.
+- Generated Radia solvers create cylindrical sources with Radia ObjCylMag, magnetized along the local +Z axis.
+- Added a first-class solenoid coil alongside annular, racetrack, and infinite-line coils.
+- Solenoids expose radius, axial length, turns, wire radius, and current and are rendered as explicit helices about local Z.
+- Solenoids participate in the Lorentz J x B force/torque calculation using the explicit helical path. Because the turns are geometrically represented, the current is not multiplied by the turn count a second time.
+- Solenoid Radia export automatically enforces at least 12 path points per turn while retaining the user-configurable cross-section repartition.
+- Solenoid and cylindrical-magnet geometry is reconstructed from .mfield metadata in the Results viewer and is available in Figure Studio SVG/PNG drawings.
+- CAD project format version increased to 2 while remaining backward-compatible with version-1 .magcad files.
 
