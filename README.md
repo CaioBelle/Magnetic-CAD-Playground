@@ -1,3 +1,37 @@
+# Magnetic CAD Playground
+
+Browser-based magnetic CAD playground for permanent magnets and coils, with publication-oriented Figure Studio drawings and a Radia-based field / Lorentz-force workflow.
+
+**Current stable version: v5.0**
+
+## Quick start
+
+1. Open `MagneticCAD.html` in Edge or Chrome.
+2. Build the magnet / coil scene.
+3. Use **Radia solve…** to generate the solver script.
+4. Run the generated Python script in the ESRF Radia environment.
+5. Open the produced `.mfield` in **Results viewer**.
+6. Use **Figure Studio** for SVG / PNG technical illustrations.
+
+## Stable Git history
+
+This repository deliberately reconstructs the stable application milestones as real Git commits and annotated tags. Use the GitHub **Tags** menu or:
+
+```bash
+git tag
+git checkout v3.8
+git checkout v4.5
+git checkout v5.0
+```
+
+The documented stable lineage is:
+
+`v1.7 → v1.8 → v1.9 → v2.0 → v2.1 → v2.2 → v2.3 → v2.4 → v2.5 → v3.0 → v3.1 → v3.2 → v3.3 → v3.4 → v3.5 → v3.6 → v3.7 → v3.8 → v3.9 → v4.0 → v4.1 → v4.2 → v4.3 → v4.4 → v4.5 → v4.7 → v4.8 → v4.9 → v5.0`
+
+`v4.6` is intentionally absent from the stable lineage because it was an intermediate legend experiment superseded before being documented as a stable milestone.
+
+---
+
 MAGNETIC CAD PLAYGROUND v4.8
 ============================
 
