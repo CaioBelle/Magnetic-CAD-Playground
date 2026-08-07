@@ -704,15 +704,18 @@ END OF README
 -------------
 Magnetic CAD Playground v4.2
 
-v4.3 Figure Studio load independence
-------------------------------------
-- Figure Studio copies the CAD force/torque visibility and component selections only
-  when the drawing window opens.
-- Changes made inside Figure Studio no longer modify the CAD force/torque controls or
-  create CAD undo-history entries.
-- Each selectable force arrow can independently display Fres, Fx, Fy, or Fz.
-- Each selectable torque arrow can independently display Mres, Mx, My, or Mz.
-- Individual component overrides coexist with the existing per-arrow size, line-width,
-  and colour controls.
-- "Use Figure Studio default" makes an individual arrow follow the drawing window's
-  current global force or torque component again.
+v4.3 drawing-load independence
+------------------------------
+- Figure Studio copies the current CAD force/torque visibility and component choices only when it opens.
+- Figure Studio load controls no longer write back into the CAD viewport.
+- Each force or torque arrow can override its displayed component independently (Fres/Fx/Fy/Fz or Mres/Mx/My/Mz), as well as size, width, and colour.
+
+v4.4 Figure Studio legend
+-------------------------
+- Added a publication legend anchored in the top-right of the Figure Studio drawing.
+- Added a dedicated Legend entry above the drawing-object list in the left panel.
+- Click either the legend box in the SVG or the Legend entry in the left panel to edit it.
+- Legend visibility, title, scale, text/border colour, and background colour are editable.
+- The legend can independently include or omit: permanent magnet, coil, current direction, magnetization, Radia field, force, and torque.
+- Legend content controls affect only the legend and do not change the drawing visibility of the corresponding objects or overlays.
+- The legend is included in SVG and PNG exports; the blue selection outline is not exported.
