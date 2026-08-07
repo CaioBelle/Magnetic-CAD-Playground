@@ -102,3 +102,7 @@ Version 2.5 history controls:
 - Ctrl+Z or the Undo button reverses the previous CAD edit.
 - Ctrl+Y / Ctrl+Shift+Z or the Redo button reapplies it.
 - Up to 80 meaningful scene states are retained.
+
+FIGURE STUDIO (v3.0 draft)
+--------------------------
+Use the "Figure Studio" button to create publication-oriented 2D vector projections of the current CAD scene. The first draft includes Top, Front, Right and Isometric views; technical B/W, red/blue pole, monochrome and schematic presets; current and magnetization arrows; hidden lines; editable colours; and SVG/PNG export.

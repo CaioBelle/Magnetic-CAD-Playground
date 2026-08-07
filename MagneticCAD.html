@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Magnetic CAD Playground v2.5</title>
+<title>Magnetic CAD Playground v3.0</title>
 <link rel="icon" type="image/png" href="magneticcad_icon.png">
 <link rel="shortcut icon" type="image/png" href="magneticcad_icon.png">
 <style>
@@ -36,6 +36,24 @@ button,input,select{font:inherit}.app{height:100%;min-height:0;padding:7px;displ
 
 @media(max-width:1160px){.layout{grid-template-columns:225px minmax(0,1fr) 255px}.btn,.select,.input{font-size:.78rem}.toolbar,.viewbar{gap:5px;padding:6px}.btn{padding:6px 8px}.icon{width:33px}}
 @media(max-width:840px){html,body{overflow:auto}.app{height:auto;min-height:100%;overflow:visible}.group-toolbar{overflow-x:auto;flex-wrap:nowrap}.axis-triad{width:82px;height:82px}.axis-triad canvas{width:82px!important;height:82px!important}.help{left:98px}.mobile{display:inline-block}.desktop{display:none}.layout{display:grid;grid-template-columns:1fr;overflow:visible}.scene,.properties{display:none}.scene.open,.properties.open{display:block;max-height:55vh}.properties-body{display:block}.viewport-panel{grid-row:1;min-height:68vh}.host{min-height:500px}.legend{width:100%}}
+
+/* ---------- Publication Figure Studio ---------- */
+.figure-overlay{position:fixed;inset:0;z-index:47;background:var(--bg);padding:8px;display:flex;flex-direction:column;min-height:0}
+.figure-toolbar{flex:0 0 auto;display:flex;align-items:center;flex-wrap:wrap;gap:7px;padding:8px;border:1px solid var(--border);border-radius:14px;background:var(--panel);margin-bottom:8px}
+.figure-layout{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:255px minmax(0,1fr) 300px;gap:8px}
+.figure-side,.figure-style,.figure-stage{min-height:0;border:1px solid var(--border);border-radius:14px;background:var(--panel);overflow:auto}
+.figure-stage{position:relative;overflow:hidden;background:#252a31;display:flex;align-items:center;justify-content:center}
+.figure-paper{width:calc(100% - 28px);height:calc(100% - 28px);min-height:280px;border-radius:5px;overflow:hidden;box-shadow:0 18px 55px rgba(0,0,0,.38);background:#fff;touch-action:none}
+.figure-paper svg{display:block;width:100%;height:100%;cursor:grab}.figure-paper svg.dragging{cursor:grabbing}
+.figure-section{padding:10px;border-bottom:1px solid var(--border)}.figure-section:last-child{border-bottom:0}
+.figure-object-list{display:grid;gap:5px}.figure-object{display:flex;align-items:center;gap:8px;padding:7px;border:1px solid var(--border);border-radius:9px;background:var(--panel2);font-size:.78rem}.figure-object input{accent-color:var(--accent)}
+.figure-preset-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.figure-preset-grid .btn.on{background:var(--accent);color:#fff}
+.figure-color-row{display:grid;grid-template-columns:minmax(0,1fr) 48px;gap:7px;align-items:center;margin-top:7px}.figure-color-row input[type=color]{width:48px;height:34px;padding:3px;border:1px solid var(--border);border-radius:8px;background:var(--panel2)}
+.figure-status{position:absolute;left:16px;bottom:16px;padding:6px 9px;border:1px solid rgba(70,80,92,.45);border-radius:999px;background:rgba(20,24,30,.78);color:#d7dde5;font-size:.7rem;pointer-events:none}
+.figure-empty{position:absolute;color:#818b99;font-size:.9rem;text-align:center;max-width:340px;line-height:1.5}
+@media(max-width:1050px){.figure-layout{grid-template-columns:220px minmax(0,1fr)}.figure-style{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.figure-style .figure-section{border-right:1px solid var(--border);border-bottom:0}}
+@media(max-width:760px){.figure-layout{grid-template-columns:1fr}.figure-side,.figure-style{max-height:36vh}.figure-style{grid-column:auto;display:block}.figure-style .figure-section{border-right:0;border-bottom:1px solid var(--border)}.figure-stage{min-height:55vh;grid-row:1}.figure-paper{width:calc(100% - 14px);height:calc(100% - 14px)}}
+
 </style>
 <script type="importmap">
 {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}
@@ -57,6 +75,7 @@ button,input,select{font:inherit}.app{height:100%;min-height:0;padding:7px;displ
     <button class="btn icon group-toggle" id="groupBarToggle" title="Open group operations">▼</button>
     <button class="btn" id="exportRadia" title="Configure the Radia solve and download the Python solver">⚙ Radia solve…</button>
     <button class="btn" id="openResults" title="Open a solved .mfield file">▦ Results viewer</button>
+    <button class="btn" id="openFigureStudio" title="Create publication-ready SVG illustrations">✦ Figure Studio</button>
     <span class="grow"></span><button class="btn desktop" data-view="top">Top</button><button class="btn desktop" data-view="front">Front</button><button class="btn desktop" data-view="iso">Iso</button>
     <button class="btn icon mobile" id="sceneMenu">☰</button><button class="btn icon mobile" id="propertyMenu">⚙</button>
   </div>
@@ -172,6 +191,80 @@ button,input,select{font:inherit}.app{height:100%;min-height:0;padding:7px;displ
         <div class="source-settings" id="sourceSettings"></div>
       </div>
       <div class="dialog-foot"><span class="meta" id="exportMessage">The script produces one portable .mfield result file.</span><span class="grow"></span><button class="btn" id="cancelExport">Cancel</button><button class="btn primary" id="downloadRadiaSolver">⇩ Download Radia solver</button></div>
+    </div>
+  </div>
+
+
+  <div class="figure-overlay" id="figureOverlay" hidden>
+    <div class="figure-toolbar">
+      <button class="btn" id="closeFigureStudio">← CAD editor</button>
+      <span class="title">Figure Studio</span><span class="meta">Publication illustration draft</span>
+      <span class="grow"></span>
+      <button class="btn" id="figureFit">Fit drawing</button>
+      <button class="btn" id="exportFigureSvg">⇩ Export SVG</button>
+      <button class="btn primary" id="exportFigurePng">⇩ Export PNG</button>
+    </div>
+    <div class="figure-layout">
+      <aside class="figure-side">
+        <div class="panel-head"><span class="title">Scene & view</span><span class="meta" id="figureSceneSummary"></span></div>
+        <div class="figure-section">
+          <div class="sub">View direction</div>
+          <div class="figure-preset-grid" id="figureViewButtons">
+            <button class="btn" data-figure-view="top">Top</button><button class="btn" data-figure-view="front">Front</button>
+            <button class="btn" data-figure-view="right">Right</button><button class="btn on" data-figure-view="iso">Isometric</button>
+          </div>
+        </div>
+        <div class="figure-section">
+          <div class="sub">Content</div>
+          <label class="switch"><input id="figureShowMagnets" type="checkbox" checked>Show magnets</label><br>
+          <label class="switch"><input id="figureShowCoils" type="checkbox" checked>Show coils</label><br>
+          <label class="switch"><input id="figureShowCurrent" type="checkbox" checked>Show coil current</label><br>
+          <label class="switch"><input id="figureShowMagnetization" type="checkbox" checked>Show magnetization</label><br>
+          <label class="switch"><input id="figureHiddenLines" type="checkbox">Hidden edges, dashed</label>
+        </div>
+        <div class="figure-section">
+          <div class="sub">Objects in this figure</div>
+          <div class="figure-object-list" id="figureObjectList"></div>
+        </div>
+      </aside>
+      <section class="figure-stage" id="figureStage">
+        <div class="figure-paper" id="figurePaper"><svg id="figureSvg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Publication preview"></svg></div>
+        <div class="figure-status" id="figureStatus">Vector preview · drag to pan · wheel to zoom</div>
+      </section>
+      <aside class="figure-style">
+        <div class="panel-head"><span class="title">Representation</span><span class="meta">SVG styling</span></div>
+        <div class="figure-section">
+          <label class="label">Style preset</label>
+          <select class="select" id="figureMode">
+            <option value="technical">Technical black & white</option>
+            <option value="poles" selected>Red / blue poles</option>
+            <option value="mono">Monochrome + arrows</option>
+            <option value="schematic">Schematic outline</option>
+          </select>
+          <label class="label">Visible-line thickness</label><div class="range-row"><input id="figureLineWidth" type="range" min="0.5" max="4" step="0.1" value="1.5"><input class="input" id="figureLineWidthValue" type="number" min="0.5" max="4" step="0.1" value="1.5"></div>
+          <label class="label">Fill opacity</label><div class="range-row"><input id="figureFillOpacity" type="range" min="0" max="1" step="0.05" value="0.92"><input class="input" id="figureFillOpacityValue" type="number" min="0" max="1" step="0.05" value="0.92"></div>
+          <label class="label">Current arrows per coil</label><div class="range-row"><input id="figureCurrentCount" type="range" min="2" max="36" step="1" value="10"><input class="input" id="figureCurrentCountValue" type="number" min="2" max="36" step="1" value="10"></div>
+        </div>
+        <div class="figure-section">
+          <div class="sub">Colours</div>
+          <div class="figure-color-row"><label class="label">Visible outlines</label><input id="figureOutlineColor" type="color" value="#111111"></div>
+          <div class="figure-color-row"><label class="label">Magnet body / sides</label><input id="figureMagnetColor" type="color" value="#e9edf2"></div>
+          <div class="figure-color-row"><label class="label">North pole</label><input id="figureNorthColor" type="color" value="#e5545a"></div>
+          <div class="figure-color-row"><label class="label">South pole</label><input id="figureSouthColor" type="color" value="#557ed8"></div>
+          <div class="figure-color-row"><label class="label">Coil material</label><input id="figureCoilColor" type="color" value="#d69a45"></div>
+          <div class="figure-color-row"><label class="label">Current arrows</label><input id="figureCurrentColor" type="color" value="#d33d3d"></div>
+          <div class="figure-color-row"><label class="label">Magnetization arrows</label><input id="figureMagArrowColor" type="color" value="#202020"></div>
+          <div class="figure-color-row"><label class="label">Hidden edges</label><input id="figureHiddenColor" type="color" value="#9aa0a8"></div>
+          <div class="figure-color-row"><label class="label">Background</label><input id="figureBackgroundColor" type="color" value="#ffffff"></div>
+          <label class="switch" style="margin-top:9px"><input id="figureTransparentBackground" type="checkbox">Transparent background</label>
+        </div>
+        <div class="figure-section">
+          <div class="sub">Export dimensions</div>
+          <div class="grid2"><div><label class="label">Width [px]</label><input class="input" id="figureExportWidth" type="number" min="200" max="10000" value="1800"></div><div><label class="label">Height [px]</label><input class="input" id="figureExportHeight" type="number" min="200" max="10000" value="1200"></div></div>
+          <label class="label">PNG scale</label><select class="select" id="figurePngScale"><option value="1">1×</option><option value="2" selected>2×</option><option value="4">4×</option></select>
+          <div class="hint">The centre preview is the actual vector artwork. SVG exports remain editable in Inkscape, Illustrator, PowerPoint, or LaTeX workflows.</div>
+        </div>
+      </aside>
     </div>
   </div>
 
@@ -353,7 +446,7 @@ function cadObjectRecord(o){
   return record;
 }
 function cadProjectRecord(){
-  return {format:CAD_PROJECT_FORMAT,version:CAD_PROJECT_VERSION,app_version:'2.5',saved_at:new Date().toISOString(),objects:objects.map(cadObjectRecord),display:{grid:q('#gridToggle').checked,snap:q('#snapToggle').checked,current_arrows:q('#currentArrowsToggle').checked,visual_mode:q('#visualMode').value,quick_field:q('#fieldToggle').checked,field_mode:q('#fieldMode').value,field_plane:q('#fieldPlane').value,field_density:q('#fieldDensity').value,quick_forces:q('#forcesToggle').checked},camera:{position:camera.position.toArray(),target:orbit.target.toArray(),up:camera.up.toArray()}};
+  return {format:CAD_PROJECT_FORMAT,version:CAD_PROJECT_VERSION,app_version:'3.0',saved_at:new Date().toISOString(),objects:objects.map(cadObjectRecord),display:{grid:q('#gridToggle').checked,snap:q('#snapToggle').checked,current_arrows:q('#currentArrowsToggle').checked,visual_mode:q('#visualMode').value,quick_field:q('#fieldToggle').checked,field_mode:q('#fieldMode').value,field_plane:q('#fieldPlane').value,field_density:q('#fieldDensity').value,quick_forces:q('#forcesToggle').checked},camera:{position:camera.position.toArray(),target:orbit.target.toArray(),up:camera.up.toArray()}};
 }
 function downloadCadProject(){
   const project=cadProjectRecord(),name=safeFileName(objects.length===1?objects[0].name:'magnetic_scene')+'.magcad',blob=new Blob([JSON.stringify(project,null,2)],{type:'application/json;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
@@ -704,6 +797,45 @@ if __name__ == "__main__":
 }
 function exportRadiaScript(){const scene=sceneForRadia();if(!scene.some(item=>item.type==='magnet')){q('#exportMessage').textContent='Add at least one visible magnet before solving.';return}const filename=safeFileName((scene.length===1?scene[0].name:'magnetic_scene'))+'_radia_solve.py',output=exportConfigFromUI().output_path;downloadText(filename,generateRadiaPython());q('#exportMessage').textContent='Downloaded '+filename+' · default result: '+output;}
 
+
+// ---------- Publication Figure Studio ----------
+const FIGURE_VIEWS={
+  top:{view:new THREE.Vector3(0,0,1),up:new THREE.Vector3(0,1,0)},
+  front:{view:new THREE.Vector3(0,-1,0),up:new THREE.Vector3(0,0,1)},
+  right:{view:new THREE.Vector3(1,0,0),up:new THREE.Vector3(0,0,1)},
+  iso:{view:new THREE.Vector3(1,-1,.78),up:new THREE.Vector3(0,0,1)}
+};
+let figureView='iso',figureHiddenObjects=new Set(),figureBaseViewBox=null,figureCurrentViewBox=null,figurePanStart=null;
+function xmlEscape(value){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]))}
+function figureBasis(){const preset=FIGURE_VIEWS[figureView]||FIGURE_VIEWS.iso,view=preset.view.clone().normalize(),u=preset.up.clone().cross(view).normalize(),v=view.clone().cross(u).normalize();return{view,u,v}}
+function figureProject(point,basis){return{x:point.dot(basis.u),y:-point.dot(basis.v),depth:point.dot(basis.view)}}
+function figureVisibleObjects(){return objects.filter(o=>o.visible&&!figureHiddenObjects.has(o.uuid))}
+function figureSettings(){return{mode:q('#figureMode').value,showMagnets:q('#figureShowMagnets').checked,showCoils:q('#figureShowCoils').checked,showCurrent:q('#figureShowCurrent').checked,showMag:q('#figureShowMagnetization').checked,hidden:q('#figureHiddenLines').checked,lineWidth:+q('#figureLineWidth').value||1.5,fillOpacity:+q('#figureFillOpacity').value,currentCount:Math.max(2,Math.round(+q('#figureCurrentCount').value||10)),outline:q('#figureOutlineColor').value,magnet:q('#figureMagnetColor').value,north:q('#figureNorthColor').value,south:q('#figureSouthColor').value,coil:q('#figureCoilColor').value,current:q('#figureCurrentColor').value,magArrow:q('#figureMagArrowColor').value,hiddenColor:q('#figureHiddenColor').value,background:q('#figureBackgroundColor').value,transparent:q('#figureTransparentBackground').checked,width:Math.max(200,Math.round(+q('#figureExportWidth').value||1800)),height:Math.max(200,Math.round(+q('#figureExportHeight').value||1200))}}
+function figurePreset(mode){const values={technical:{outline:'#111111',magnet:'#f1f1f1',north:'#f1f1f1',south:'#f1f1f1',coil:'#dedede',current:'#111111',magArrow:'#111111',hidden:'#a0a0a0',background:'#ffffff',opacity:.92},poles:{outline:'#151515',magnet:'#e9edf2',north:'#e5545a',south:'#557ed8',coil:'#d69a45',current:'#d33d3d',magArrow:'#202020',hidden:'#9aa0a8',background:'#ffffff',opacity:.92},mono:{outline:'#111111',magnet:'#f4f4f4',north:'#f4f4f4',south:'#f4f4f4',coil:'#d8d8d8',current:'#111111',magArrow:'#111111',hidden:'#999999',background:'#ffffff',opacity:.88},schematic:{outline:'#111111',magnet:'#ffffff',north:'#ffffff',south:'#ffffff',coil:'#ffffff',current:'#111111',magArrow:'#111111',hidden:'#b0b0b0',background:'#ffffff',opacity:0}}[mode];if(!values)return;[['#figureOutlineColor','outline'],['#figureMagnetColor','magnet'],['#figureNorthColor','north'],['#figureSouthColor','south'],['#figureCoilColor','coil'],['#figureCurrentColor','current'],['#figureMagArrowColor','magArrow'],['#figureHiddenColor','hidden'],['#figureBackgroundColor','background']].forEach(([id,key])=>q(id).value=values[key]);q('#figureFillOpacity').value=q('#figureFillOpacityValue').value=values.opacity}
+function figureMagnetData(o,basis){const d=o.userData.dimensions,local=[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]].map(([x,y,z])=>new THREE.Vector3(x*d.x/2,y*d.y/2,z*d.z/2).applyMatrix4(o.matrixWorld)),projected=local.map(p=>figureProject(p,basis)),normalMatrix=new THREE.Matrix3().getNormalMatrix(o.matrixWorld),faces=[{i:[0,3,2,1],n:new THREE.Vector3(0,0,-1),pole:'south'},{i:[4,5,6,7],n:new THREE.Vector3(0,0,1),pole:'north'},{i:[0,1,5,4],n:new THREE.Vector3(0,-1,0)},{i:[1,2,6,5],n:new THREE.Vector3(1,0,0)},{i:[2,3,7,6],n:new THREE.Vector3(0,1,0)},{i:[3,0,4,7],n:new THREE.Vector3(-1,0,0)}],edges=[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];return{object:o,world:local,points:projected,faces:faces.map(f=>({...f,normal:f.n.clone().applyMatrix3(normalMatrix).normalize(),depth:f.i.reduce((s,i)=>s+projected[i].depth,0)/4})),edges}}
+function figureCoilData(o,basis){const pts=pathPoints(o.userData,192).map(p=>p.applyMatrix4(o.matrixWorld)),projected=pts.map(p=>figureProject(p,basis)),scale=o.getWorldScale(new THREE.Vector3()),wire=Math.max(.2,2*o.userData.wireRadius*(Math.abs(scale.x)+Math.abs(scale.y)+Math.abs(scale.z))/3);return{object:o,world:pts,points:projected,wire,depth:projected.reduce((s,p)=>s+p.depth,0)/Math.max(1,projected.length)}}
+function figureBounds(data){let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;const include=p=>{minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y)};data.magnets.forEach(m=>m.points.forEach(include));data.coils.forEach(c=>c.points.forEach(include));if(!Number.isFinite(minX))return{x:-100,y:-70,w:200,h:140};let w=Math.max(1,maxX-minX),h=Math.max(1,maxY-minY),pad=Math.max(w,h)*.12+4;return{x:minX-pad,y:minY-pad,w:w+2*pad,h:h+2*pad}}
+function figurePath(points,closed=true){return points.length?'M '+points.map(p=>p.x.toFixed(4)+' '+p.y.toFixed(4)).join(' L ')+(closed?' Z':''):''}
+function figureArrowSvg(x1,y1,x2,y2,color,width,head){const dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy);if(len<1e-8)return'';const ux=dx/len,uy=dy/len,px=-uy,py=ux,bx=x2-head*1.05*ux,by=y2-head*1.05*uy,a=[x2,y2],b=[bx+head*.5*px,by+head*.5*py],c=[bx-head*.5*px,by-head*.5*py];return`<g fill="${color}" stroke="${color}" stroke-linecap="round"><line x1="${x1}" y1="${y1}" x2="${bx}" y2="${by}" stroke-width="${width}"/><polygon points="${a[0]},${a[1]} ${b[0]},${b[1]} ${c[0]},${c[1]}" stroke="none"/></g>`}
+function figureSceneData(){scene.updateMatrixWorld(true);const basis=figureBasis(),settings=figureSettings(),visible=figureVisibleObjects(),magnets=settings.showMagnets?visible.filter(o=>o.userData.type==='magnet').map(o=>figureMagnetData(o,basis)):[],coils=settings.showCoils?visible.filter(o=>o.userData.type==='coil').map(o=>figureCoilData(o,basis)):[];return{basis,settings,magnets,coils}}
+function buildFigureSvg(preserveView=false){const svg=q('#figureSvg'),data=figureSceneData(),bounds=figureBounds(data),span=Math.max(bounds.w,bounds.h),line=Math.max(.05,span/850*data.settings.lineWidth),hiddenLine=line*.72,arrowHead=Math.max(span/90,1.8),arrowLength=Math.max(span/19,7);if(!preserveView||!figureCurrentViewBox){figureBaseViewBox={...bounds};figureCurrentViewBox={...bounds}}const vb=figureCurrentViewBox||bounds,parts=[];svg.setAttribute('viewBox',`${vb.x} ${vb.y} ${vb.w} ${vb.h}`);svg.setAttribute('width',data.settings.width);svg.setAttribute('height',data.settings.height);svg.setAttribute('preserveAspectRatio','xMidYMid meet');if(!data.settings.transparent)parts.push(`<rect x="${vb.x}" y="${vb.y}" width="${vb.w}" height="${vb.h}" fill="${data.settings.background}"/>`);
+ if(data.settings.hidden){data.magnets.forEach(m=>m.edges.forEach(([a,b])=>{const p=m.points[a],r=m.points[b];parts.push(`<line x1="${p.x}" y1="${p.y}" x2="${r.x}" y2="${r.y}" stroke="${data.settings.hiddenColor}" stroke-width="${hiddenLine}" stroke-dasharray="${line*3} ${line*2.3}" fill="none"/>`)}))}
+ const commands=[];data.magnets.forEach(m=>m.faces.filter(f=>f.normal.dot(data.basis.view)>1e-7).forEach(f=>commands.push({type:'face',depth:f.depth,m,f})));data.coils.forEach(c=>commands.push({type:'coil',depth:c.depth,c}));commands.sort((a,b)=>a.depth-b.depth);
+ commands.forEach(cmd=>{if(cmd.type==='face'){const {m,f}=cmd,pts=f.i.map(i=>m.points[i]),fill=data.settings.mode==='schematic'?'none':f.pole==='north'?data.settings.north:f.pole==='south'?data.settings.south:data.settings.magnet;parts.push(`<path d="${figurePath(pts)}" fill="${fill}" fill-opacity="${data.settings.fillOpacity}" stroke="${data.settings.outline}" stroke-width="${line}" stroke-linejoin="round"/>`)}else{const c=cmd.c,path=figurePath(c.points);parts.push(`<path d="${path}" fill="none" stroke="${data.settings.outline}" stroke-width="${c.wire+2.2*line}" stroke-linejoin="round" stroke-linecap="round"/>`);parts.push(`<path d="${path}" fill="none" stroke="${data.settings.coil}" stroke-opacity="${data.settings.mode==='schematic'?.02:data.settings.fillOpacity}" stroke-width="${Math.max(.15,c.wire)}" stroke-linejoin="round" stroke-linecap="round"/>`)}});
+ if(data.settings.showMag){data.magnets.forEach(m=>{const d=m.object.userData.dimensions,a=new THREE.Vector3(0,0,-.32*d.z).applyMatrix4(m.object.matrixWorld),b=new THREE.Vector3(0,0,.32*d.z).applyMatrix4(m.object.matrixWorld),pa=figureProject(a,data.basis),pb=figureProject(b,data.basis),projected=Math.hypot(pb.x-pa.x,pb.y-pa.y);if(projected>arrowHead*.8)parts.push(figureArrowSvg(pa.x,pa.y,pb.x,pb.y,data.settings.magArrow,line*1.35,arrowHead));else{const center=figureProject(m.object.getWorldPosition(new THREE.Vector3()),data.basis),dir=new THREE.Vector3(0,0,1).transformDirection(m.object.matrixWorld),toward=dir.dot(data.basis.view)>0,r=arrowHead*.55;parts.push(`<circle cx="${center.x}" cy="${center.y}" r="${r}" fill="none" stroke="${data.settings.magArrow}" stroke-width="${line*1.2}"/>`);if(toward)parts.push(`<circle cx="${center.x}" cy="${center.y}" r="${line*1.45}" fill="${data.settings.magArrow}"/>`);else parts.push(`<path d="M ${center.x-r*.55} ${center.y-r*.55} L ${center.x+r*.55} ${center.y+r*.55} M ${center.x+r*.55} ${center.y-r*.55} L ${center.x-r*.55} ${center.y+r*.55}" stroke="${data.settings.magArrow}" stroke-width="${line*1.2}"/>`)}})}
+ if(data.settings.showCurrent){data.coils.forEach(c=>{const n=c.points.length,count=Math.min(data.settings.currentCount,n),sign=c.object.userData.current>=0?1:-1;for(let k=0;k<count;k++){const i=Math.floor(k*n/count),j=(i+sign+n)%n,p=c.points[i],r=c.points[j],dx=r.x-p.x,dy=r.y-p.y,l=Math.hypot(dx,dy);if(l<1e-7)continue;const ux=dx/l,uy=dy/l,L=Math.min(arrowLength,Math.max(c.wire*3,arrowLength*.72)),x1=p.x-.38*L*ux,y1=p.y-.38*L*uy,x2=p.x+.38*L*ux,y2=p.y+.38*L*uy;parts.push(figureArrowSvg(x1,y1,x2,y2,data.settings.current,line*1.15,arrowHead*.72))}})}
+ svg.innerHTML=parts.join('');q('#figurePaper').style.background=data.settings.transparent?'repeating-conic-gradient(#e5e7eb 0 25%,#fff 0 50%) 50% / 18px 18px':data.settings.background;q('#figureSceneSummary').textContent=(data.magnets.length+data.coils.length)+' visible object'+(data.magnets.length+data.coils.length===1?'':'s');q('#figureStatus').textContent=`${figureView[0].toUpperCase()+figureView.slice(1)} · ${data.settings.mode.replace('poles','red/blue poles')} · true SVG vectors`;return svg}
+function populateFigureObjects(){const box=q('#figureObjectList');box.innerHTML='';objects.filter(o=>o.visible).forEach(o=>{const label=document.createElement('label');label.className='figure-object';label.innerHTML=`<input type="checkbox" data-figure-object="${o.uuid}" ${figureHiddenObjects.has(o.uuid)?'':'checked'}><span class="source-icon ${o.userData.type}" style="width:23px;height:23px">${o.userData.type==='magnet'?'M':'C'}</span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${xmlEscape(o.name)}</span>`;label.querySelector('input').onchange=e=>{e.target.checked?figureHiddenObjects.delete(o.uuid):figureHiddenObjects.add(o.uuid);buildFigureSvg(false)};box.appendChild(label)});if(!box.children.length)box.innerHTML='<div class="meta">No visible CAD objects.</div>'}
+function openFigureStudio(){closeGroupOperation?.();figureHiddenObjects.clear();figureView='iso';q('#figureOverlay').hidden=false;root.querySelectorAll('[data-figure-view]').forEach(b=>b.classList.toggle('on',b.dataset.figureView==='iso'));populateFigureObjects();figurePreset(q('#figureMode').value);buildFigureSvg(false)}
+function closeFigureStudio(){q('#figureOverlay').hidden=true}
+function figureSetView(view){figureView=view;root.querySelectorAll('[data-figure-view]').forEach(b=>b.classList.toggle('on',b.dataset.figureView===view));buildFigureSvg(false)}
+function figureSetViewBox(vb){figureCurrentViewBox={...vb};q('#figureSvg').setAttribute('viewBox',`${vb.x} ${vb.y} ${vb.w} ${vb.h}`)}
+function fitFigure(){if(figureBaseViewBox)figureSetViewBox(figureBaseViewBox)}
+function figureSvgText(){const svg=buildFigureSvg(true).cloneNode(true),s=figureSettings();svg.setAttribute('xmlns','http://www.w3.org/2000/svg');svg.setAttribute('width',s.width);svg.setAttribute('height',s.height);return'<?xml version="1.0" encoding="UTF-8"?>\n'+new XMLSerializer().serializeToString(svg)}
+function exportFigureSvg(){const filename=safeFileName(objects.length===1?objects[0].name:'magnetic_scene')+'_figure.svg';downloadText(filename,figureSvgText());q('#figureStatus').textContent='Exported '+filename}
+function exportFigurePng(){const s=figureSettings(),scale=Math.max(1,+q('#figurePngScale').value||2),blob=new Blob([figureSvgText()],{type:'image/svg+xml;charset=utf-8'}),url=URL.createObjectURL(blob),image=new Image();image.onload=()=>{const canvas=document.createElement('canvas');canvas.width=s.width*scale;canvas.height=s.height*scale;const ctx=canvas.getContext('2d');if(!s.transparent){ctx.fillStyle=s.background;ctx.fillRect(0,0,canvas.width,canvas.height)}ctx.drawImage(image,0,0,canvas.width,canvas.height);URL.revokeObjectURL(url);canvas.toBlob(png=>{const a=document.createElement('a');a.href=URL.createObjectURL(png);a.download=safeFileName(objects.length===1?objects[0].name:'magnetic_scene')+'_figure.png';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500)},'image/png')};image.onerror=()=>{URL.revokeObjectURL(url);alert('The browser could not rasterize the SVG preview.')};image.src=url}
+function bindFigureRange(rangeId,valueId,callback){const r=q(rangeId),v=q(valueId);r.oninput=e=>{v.value=e.target.value;callback(true)};r.onchange=e=>callback(true);v.onchange=e=>{r.value=e.target.value;callback(true)}}
+
 // ---------- Read-only Radia results viewer ----------
 let resultData=null,resultScene=null,resultCamera=null,resultRenderer=null,resultOrbit=null,resultGeometry=null,resultVectorsGroup=null,resultLoadsGroup=null,resultSliceMesh=null,resultResizeObserver=null;
 function initResults3D(){if(resultRenderer)return;const resultHost=q('#resultThree'),resultViewport=q('#resultViewport');resultScene=new THREE.Scene();resultScene.background=C.panel;resultGeometry=new THREE.Group();resultVectorsGroup=new THREE.Group();resultLoadsGroup=new THREE.Group();resultScene.add(resultGeometry,resultVectorsGroup,resultLoadsGroup,new THREE.HemisphereLight(0xffffff,0x30343b,2.5));const dl=new THREE.DirectionalLight(0xffffff,2.5);dl.position.set(120,-100,180);resultScene.add(dl);resultCamera=new THREE.PerspectiveCamera(42,1,.1,5000);resultCamera.up.set(0,0,1);resultCamera.position.set(160,-180,130);resultRenderer=new THREE.WebGLRenderer({antialias:true});resultRenderer.setPixelRatio(Math.min(devicePixelRatio,2));resultRenderer.domElement.className='webgl-result';resultHost.appendChild(resultRenderer.domElement);resultOrbit=new OrbitControls(resultCamera,resultRenderer.domElement);resultOrbit.enableDamping=true;resultSliceMesh=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({color:C.accent,transparent:true,opacity:.15,side:THREE.DoubleSide,depthWrite:false}));resultScene.add(resultSliceMesh);resultResizeObserver=new ResizeObserver(()=>{const w=resultViewport.clientWidth,h=resultViewport.clientHeight;resultRenderer.setSize(w,h,false);resultCamera.aspect=w/h;resultCamera.updateProjectionMatrix()});resultResizeObserver.observe(resultViewport);(function renderResult(){resultOrbit.update();resultRenderer.render(resultScene,resultCamera);requestAnimationFrame(renderResult)})()}
@@ -731,6 +863,10 @@ function updateProfile(s,values,min,max){const horizontal=q('#profileDirection')
 async function loadMfield(file){initResults3D();try{resultData=parseMfield(await file.arrayBuffer())}catch(error){alert(error.message);return}resultGeometry.clear();resultData.header.scene.forEach(addResultGeometry);populateResultsTree();q('#resultTitle').textContent=file.name;q('#resultSummary').textContent=resultData.nx+' × '+resultData.ny+' × '+resultData.nz+' · '+(file.size/1048576).toFixed(1)+' MB · permanent-magnet field · '+resultData.header.solver.engine;const total=resultData.nx*resultData.ny*resultData.nz,initial=Math.min(total,2500);q('#resultArrowCount').max=q('#resultArrowCountValue').max=total;q('#resultArrowCount').value=q('#resultArrowCountValue').value=initial;q('#resultArrowCountInfo').textContent='Displaying up to '+initial.toLocaleString()+' arrows from '+total.toLocaleString()+' saved field points.';rebuildResultVectors();rebuildResultLoads();updateSlice();fitResultView('iso')}
 function openResultsViewer(){q('#resultsOverlay').hidden=false;initResults3D();setTimeout(()=>resultResizeObserver?.observe(q('#resultViewport')),0)}function closeResultsViewer(){q('#resultsOverlay').hidden=true}
 q('#exportRadia').onclick=openExportDialog;q('#closeExport').onclick=q('#cancelExport').onclick=closeExportDialog;q('#fitExportBox').onclick=fitExportBox;q('#downloadRadiaSolver').onclick=exportRadiaScript;root.querySelectorAll('.export-config').forEach(x=>x.oninput=updateExportEstimate);q('#openResults').onclick=openResultsViewer;q('#closeResults').onclick=closeResultsViewer;q('#resultFile').onchange=e=>e.target.files[0]&&loadMfield(e.target.files[0]);root.querySelectorAll('[data-result-view]').forEach(b=>b.onclick=()=>fitResultView(b.dataset.resultView));q('#resultVectors').onchange=rebuildResultVectors;function setResultArrowCount(value,rebuild=true){if(!resultData)return;const total=resultData.nx*resultData.ny*resultData.nz,v=Math.max(1,Math.min(total,Math.round(+value||1)));q('#resultArrowCount').value=q('#resultArrowCountValue').value=v;q('#resultArrowCountInfo').textContent='Requested '+v.toLocaleString()+' arrows from '+total.toLocaleString()+' saved field points.';if(rebuild)rebuildResultVectors()}q('#resultArrowCount').oninput=e=>{q('#resultArrowCountValue').value=e.target.value;setResultArrowCount(e.target.value,false)};q('#resultArrowCount').onchange=e=>setResultArrowCount(e.target.value,true);q('#resultArrowCountValue').onchange=e=>setResultArrowCount(e.target.value,true);function setResultArrowSize(value,rebuild=true){const v=Math.max(.25,Math.min(4,+value||1));q('#resultArrowSize').value=q('#resultArrowSizeValue').value=v.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');if(rebuild)rebuildResultVectors()}q('#resultArrowSize').oninput=e=>{q('#resultArrowSizeValue').value=e.target.value};q('#resultArrowSize').onchange=e=>setResultArrowSize(e.target.value,true);q('#resultArrowSizeValue').onchange=e=>setResultArrowSize(e.target.value,true);function setResultArrowColor(value,rebuild=true){const hex=String(value||'').trim();if(!/^#[0-9a-fA-F]{6}$/.test(hex)){q('#resultArrowColorValue').value=q('#resultArrowColor').value.toUpperCase();return}q('#resultArrowColor').value=hex.toLowerCase();q('#resultArrowColorValue').value=hex.toUpperCase();if(rebuild)rebuildResultVectors()}q('#resultArrowColor').oninput=e=>setResultArrowColor(e.target.value,true);q('#resultArrowColorValue').onchange=e=>setResultArrowColor(e.target.value,true);q('#resultForces').onchange=rebuildResultLoads;['#slicePlane','#sliceComponent','#slicePosition','#profileDirection','#profileOffset','#profileOverlayToggle'].forEach(id=>q(id).oninput=updateSlice);q('#sliceCanvas').onmousemove=e=>{if(!resultData)return;const rect=e.target.getBoundingClientRect(),s=sliceIndices(),u=Math.max(0,Math.min(s.nu-1,Math.round((e.clientX-rect.left)/rect.width*(s.nu-1)))),v=Math.max(0,Math.min(s.nv-1,Math.round((1-(e.clientY-rect.top)/rect.height)*(s.nv-1)))),val=sliceGridValue(s,u,v),ua=axisArray(s.u),va=axisArray(s.v);q('#probeValue').textContent=s.u.toUpperCase()+' '+ua[u].toFixed(2)+' · '+s.v.toUpperCase()+' '+va[v].toFixed(2)+' · '+q('#sliceComponent').selectedOptions[0].text+' '+val.toExponential(4)+' T'};
+
+
+q('#openFigureStudio').onclick=openFigureStudio;q('#closeFigureStudio').onclick=closeFigureStudio;q('#figureFit').onclick=fitFigure;q('#exportFigureSvg').onclick=exportFigureSvg;q('#exportFigurePng').onclick=exportFigurePng;root.querySelectorAll('[data-figure-view]').forEach(b=>b.onclick=()=>figureSetView(b.dataset.figureView));q('#figureMode').onchange=e=>{figurePreset(e.target.value);buildFigureSvg(false)};['#figureShowMagnets','#figureShowCoils','#figureShowCurrent','#figureShowMagnetization','#figureHiddenLines','#figureTransparentBackground'].forEach(id=>q(id).onchange=()=>buildFigureSvg(false));['#figureOutlineColor','#figureMagnetColor','#figureNorthColor','#figureSouthColor','#figureCoilColor','#figureCurrentColor','#figureMagArrowColor','#figureHiddenColor','#figureBackgroundColor'].forEach(id=>q(id).oninput=()=>buildFigureSvg(true));['#figureExportWidth','#figureExportHeight'].forEach(id=>q(id).onchange=()=>buildFigureSvg(true));bindFigureRange('#figureLineWidth','#figureLineWidthValue',preserve=>buildFigureSvg(preserve));bindFigureRange('#figureFillOpacity','#figureFillOpacityValue',preserve=>buildFigureSvg(preserve));bindFigureRange('#figureCurrentCount','#figureCurrentCountValue',preserve=>buildFigureSvg(preserve));
+const figureSvg=q('#figureSvg');figureSvg.addEventListener('wheel',e=>{e.preventDefault();if(!figureCurrentViewBox)return;const rect=figureSvg.getBoundingClientRect(),fx=(e.clientX-rect.left)/rect.width,fy=(e.clientY-rect.top)/rect.height,factor=e.deltaY>0?1.12:.89,v=figureCurrentViewBox,nw=v.w*factor,nh=v.h*factor;figureSetViewBox({x:v.x+fx*(v.w-nw),y:v.y+fy*(v.h-nh),w:nw,h:nh})},{passive:false});figureSvg.addEventListener('pointerdown',e=>{if(e.button!==0)return;figurePanStart={x:e.clientX,y:e.clientY,v:{...figureCurrentViewBox}};figureSvg.setPointerCapture(e.pointerId);figureSvg.classList.add('dragging')});figureSvg.addEventListener('pointermove',e=>{if(!figurePanStart)return;const rect=figureSvg.getBoundingClientRect(),dx=(e.clientX-figurePanStart.x)/rect.width*figurePanStart.v.w,dy=(e.clientY-figurePanStart.y)/rect.height*figurePanStart.v.h;figureSetViewBox({x:figurePanStart.v.x-dx,y:figurePanStart.v.y-dy,w:figurePanStart.v.w,h:figurePanStart.v.h})});figureSvg.addEventListener('pointerup',()=>{figurePanStart=null;figureSvg.classList.remove('dragging')});figureSvg.addEventListener('pointercancel',()=>{figurePanStart=null;figureSvg.classList.remove('dragging')});
 
 q('#saveCad').onclick=downloadCadProject;q('#openCad').onclick=()=>{q('#openCadFile').value='';q('#openCadFile').click()};q('#importCad').onclick=()=>{q('#importCadFile').value='';q('#importCadFile').click()};q('#undoCad').onclick=undoCad;q('#redoCad').onclick=redoCad;q('#openCadFile').onchange=e=>e.target.files[0]&&loadCadProjectFile(e.target.files[0],'replace');q('#importCadFile').onchange=e=>e.target.files[0]&&loadCadProjectFile(e.target.files[0],'merge');
 q('#groupBarToggle').onclick=()=>{const bar=q('#groupToolbar'),opening=bar.hidden;bar.hidden=!opening;q('#groupBarToggle').classList.toggle('open',opening);q('#groupBarToggle').title=opening?'Close group operations':'Open group operations'};root.querySelectorAll('.group-command').forEach(button=>button.onclick=()=>openGroupOperation(button.dataset.operation));q('#closeOperation').onclick=q('#cancelOperation').onclick=closeGroupOperation;q('#applyOperation').onclick=applyGroupOperation;['#revolveAxis','#revolveAngle','#revolveCopies','#revolvePx','#revolvePy','#revolvePz','#revolvePreview','#patternCopies','#patternDx','#patternDy','#patternDz','#patternPreview','#mirrorPlane','#mirrorOffset','#mirrorCopy','#mirrorPreview'].forEach(id=>{q(id).addEventListener('input',updateOperationPreview);q(id).addEventListener('change',updateOperationPreview)});
