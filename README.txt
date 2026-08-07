@@ -93,3 +93,6 @@ v2.2 construction-preview update:
 
 
 v2.3: stronger translucent group-operation previews; full circular construction ring and automatic non-zero pivot offset when the selected source initially lies on the rotation axis.
+
+
+v2.4: operation previews are rebuilt as independent CAD ghost geometry. Circular, linear, and mirror previews no longer clone live materials; construction rings and lines use visible 3D geometry.
