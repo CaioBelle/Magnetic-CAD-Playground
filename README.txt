@@ -719,3 +719,12 @@ v4.4 Figure Studio legend
 - The legend can independently include or omit: permanent magnet, coil, current direction, magnetization, Radia field, force, and torque.
 - Legend content controls affect only the legend and do not change the drawing visibility of the corresponding objects or overlays.
 - The legend is included in SVG and PNG exports; the blue selection outline is not exported.
+
+
+v4.5 legend polish
+------------------
+- Figure Studio legend typography now uses a clean regular Arial/Helvetica sans-serif style, closer to MATLAB figure legends.
+- Rebuilt the Radia-field legend sample as a smooth streamline with a tangent-aligned arrowhead.
+- Rebuilt the torque legend sample as a true curved circular arrow with a tangent-aligned arrowhead.
+- Added a Transparent background switch directly above the legend background-colour control.
+- When transparent legend background is enabled, the legend border and text remain visible while the box fill is removed.
