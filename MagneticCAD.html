@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Magnetic CAD Playground v4.8</title>
+<title>Magnetic CAD Playground v4.9</title>
 <link rel="icon" type="image/png" href="magneticcad_icon.png">
 <link rel="shortcut icon" type="image/png" href="magneticcad_icon.png">
 <style>
@@ -143,7 +143,7 @@ button,input,select{font:inherit}.app{height:100%;min-height:0;padding:7px;displ
           <div id="annularGeometry"><label class="label">Radius mm</label><input class="input coil-geometry" id="coilRadius" type="number"></div>
           <div id="racetrackGeometry"><div class="grid2"><div><label class="label">Straight length mm</label><input class="input coil-geometry" id="racetrackLength" type="number"></div><div><label class="label">End radius mm</label><input class="input coil-geometry" id="racetrackRadius" type="number"></div></div></div>
           <div id="lineGeometry"><div class="hint"><strong>Infinite-line representation:</strong> the CAD uses a long visual segment along local X. Its finite Lorentz-integration length is chosen per line in the Radia solve menu.</div></div>
-          <div id="solenoidGeometry"><div class="grid2"><div><label class="label">Solenoid radius [mm]</label><input class="input coil-geometry" id="solenoidRadius" type="number" min=".1" step=".1"></div><div><label class="label">Axial length [mm]</label><input class="input coil-geometry" id="solenoidLength" type="number" min=".1" step=".1"></div></div><div class="hint">The solenoid is represented as an explicit helical conductor around local Z. The Turns value below controls the number of helical turns.</div></div>
+          <div id="solenoidGeometry"><div class="grid2"><div><label class="label">Solenoid radius [mm]</label><input class="input coil-geometry" id="solenoidRadius" type="number" min=".1" step=".1"></div><div><label class="label">Axial length [mm]</label><input class="input coil-geometry" id="solenoidLength" type="number" min=".1" step=".1"></div></div><div class="hint" id="solenoidVisualHint">The solenoid is represented as an explicit helix around local Z. CAD/Figure Studio automatically limit only the <em>displayed</em> wire thickness when neighbouring turns would visually overlap; Radia still uses the entered wire radius.</div></div>
           <div class="grid2"><div><label class="label">Turns</label><input class="input coil-geometry" id="coilTurns" type="number"></div><div><label class="label">Wire radius mm</label><input class="input coil-geometry" id="wireRadius" type="number" step=".1"></div></div>
           <label class="label">Current A</label><div class="range-row"><input id="coilCurrent" type="range" min="-20" max="20" step=".1"><input class="input" id="coilCurrentValue" type="number" step=".1"></div>
         </div>
@@ -346,7 +346,7 @@ button,input,select{font:inherit}.app{height:100%;min-height:0;padding:7px;displ
               <div class="figure-color-row"><label class="label">Coil material</label><input id="figureObjectCoilColor" type="color" value="#d69a45"></div>
               <div class="figure-color-row"><label class="label">Current arrows</label><input id="figureObjectCurrentColor" type="color" value="#d33d3d"></div>
               <label class="label">Current arrows on this coil</label><div class="range-row"><input id="figureObjectCurrentCount" type="range" min="2" max="36" step="1" value="10"><input class="input" id="figureObjectCurrentCountValue" type="number" min="2" max="36" step="1" value="10"></div>
-              <div class="hint" id="figureCoilModeHint">Racetrack coils can use filled conductor, racetrack without borders, two parallelograms, or center line only.</div>
+              <div class="hint" id="figureCoilModeHint">Racetrack coils have additional active-section representations. Solenoids use a dedicated clean turn-by-turn projection in Figure Studio.</div>
             </div>
             <button class="btn" id="figureResetObjectStyle" style="width:100%;margin-top:9px">Use global style for this object</button>
           </div>
@@ -503,24 +503,39 @@ function rebuildMagnet(o){
   }
   applyVisualMode()
 }
+function solenoidPitch(d){return Math.max(.0001,Math.max(.1,Number(d.solenoidLength)||50)/Math.max(1,Math.round(Number(d.turns)||1)))}
+function solenoidVisualWireRadius(d){const pitch=solenoidPitch(d),radius=Math.max(.1,Number(d.solenoidRadius)||20),actual=Math.max(.05,Number(d.wireRadius)||1);return Math.max(.05,Math.min(actual,pitch*.32,radius*.075))}
+function solenoidVisualPointCount(d){const turns=Math.max(1,Math.round(Number(d.turns)||1));return Math.min(4097,Math.max(193,turns*32+1))}
+function solenoidTurnLocalPoints(d,turnIndex,count=56){const turns=Math.max(1,Math.round(Number(d.turns)||1)),radius=Math.max(.1,Number(d.solenoidRadius)||20),length=Math.max(.1,Number(d.solenoidLength)||50),pitch=length/turns,z=-length/2+(turnIndex+.5)*pitch,pts=[];for(let i=0;i<count;i++){const a=2*Math.PI*i/count;pts.push(new THREE.Vector3(radius*Math.cos(a),radius*Math.sin(a),z))}return pts}
 function createCoil(shape='annular',name){
   const o=new THREE.Group();o.name=name||((coilShapeLabel(shape))+' coil '+coilCount++);
-  o.userData={type:'coil',locked:false,shape,radius:25,length:55,endRadius:18,displayLength:280,simulationLength:200,solenoidRadius:20,solenoidLength:50,turns:shape==='solenoid'?24:80,wireRadius:2.8,current:5,integration:{path:shape==='solenoid'?384:160,u:5,v:5}};
+  o.userData={type:'coil',locked:false,shape,radius:25,length:55,endRadius:18,displayLength:280,simulationLength:200,solenoidRadius:20,solenoidLength:50,turns:shape==='solenoid'?12:80,wireRadius:shape==='solenoid'?1.0:2.8,current:5,integration:{path:shape==='solenoid'?384:160,u:5,v:5}};
   const conductor=new THREE.Mesh();conductor.userData.part='conductor';
   const arrows=new THREE.Group();arrows.userData.part='arrows';
   const centerline=new THREE.Line(new THREE.BufferGeometry(),new THREE.LineBasicMaterial({color:C.coil}));centerline.userData.part='centerline';
   o.add(conductor,arrows,centerline);rebuildCoil(o);setOwner(o);objectsGroup.add(o);objects.push(o);selectObject(o);schedule();return o
 }
 function rebuildCoil(o){
-  const d=o.userData,pts=pathPoints(d,d.shape==='solenoid'?Math.max(192,(d.turns||1)*12+1):128),closed=coilPathClosed(d.shape);
+  const d=o.userData,visualCount=d.shape==='solenoid'?solenoidVisualPointCount(d):128,pts=pathPoints(d,visualCount),closed=coilPathClosed(d.shape);
   const curve=d.shape==='line'?new THREE.LineCurve3(pts[0],pts[pts.length-1]):new THREE.CatmullRomCurve3(pts,closed,'centripetal');
   const conductor=o.children.find(x=>x.userData.part==='conductor'),arrows=o.children.find(x=>x.userData.part==='arrows'),centerline=o.children.find(x=>x.userData.part==='centerline');
+  const displayWire=d.shape==='solenoid'?solenoidVisualWireRadius(d):d.wireRadius;
   conductor.geometry?.dispose?.();conductor.material?.dispose?.();
-  conductor.geometry=new THREE.TubeGeometry(curve,Math.max(90,pts.length),d.wireRadius,12,closed);
-  conductor.material=new THREE.MeshStandardMaterial({color:C.coil,metalness:.25,roughness:.4,transparent:true});
+  conductor.geometry=new THREE.TubeGeometry(curve,Math.max(96,pts.length-1),displayWire,d.shape==='solenoid'?8:12,closed);
+  conductor.material=new THREE.MeshStandardMaterial({color:C.coil,metalness:.22,roughness:.42,transparent:true});
+  conductor.userData.displayWireRadius=displayWire;
   centerline.geometry.dispose();centerline.geometry=new THREE.BufferGeometry().setFromPoints(closed?[...pts,pts[0]]:pts);
-  arrows.clear();const sign=d.current>=0?1:-1,count=d.shape==='annular'?16:d.shape==='line'?12:d.shape==='solenoid'?24:20;
-  for(let i=0;i<count;i++){const u=(i+.5)/count,p=curve.getPointAt(u),t=curve.getTangentAt(u).multiplyScalar(sign),a=new THREE.ArrowHelper(t,p,7,C.coil,2.8,1.8);a.line.material.transparent=a.cone.material.transparent=true;a.line.material.opacity=a.cone.material.opacity=Math.abs(d.current)<.05?.18:1;arrows.add(a)}
+  arrows.clear();
+  const sign=d.current>=0?1:-1,count=d.shape==='annular'?16:d.shape==='line'?12:d.shape==='solenoid'?Math.min(8,Math.max(4,Math.ceil(Math.max(1,d.turns)/3))):20;
+  for(let i=0;i<count;i++){
+    const u=(i+.5)/count,p=curve.getPointAt(u),t=curve.getTangentAt(u).multiplyScalar(sign);
+    const arrowLength=d.shape==='solenoid'?Math.max(3.6,Math.min(6,solenoidPitch(d)*1.35)):7;
+    const headLength=d.shape==='solenoid'?Math.min(2.2,arrowLength*.42):2.8,headWidth=d.shape==='solenoid'?Math.min(1.35,arrowLength*.25):1.8;
+    const a=new THREE.ArrowHelper(t,p,arrowLength,C.coil,headLength,headWidth);
+    a.line.material.transparent=a.cone.material.transparent=true;
+    a.line.material.opacity=a.cone.material.opacity=Math.abs(d.current)<.05?.18:1;
+    arrows.add(a)
+  }
   applyVisualMode()
 }
 function bakeScale(){if(!selected||currentTool!=='scale')return;const s=selected.scale.clone();if(Math.abs(s.x-1)<1e-4&&Math.abs(s.y-1)<1e-4&&Math.abs(s.z-1)<1e-4)return;if(selected.userData.type==='magnet'){const d=selected.userData;if(d.shape==='cylinder'){d.radius=Math.max(.1,d.radius*(Math.abs(s.x)+Math.abs(s.y))/2);d.height=Math.max(.1,d.height*Math.abs(s.z))}else{d.dimensions.x=Math.max(1,d.dimensions.x*Math.abs(s.x));d.dimensions.y=Math.max(1,d.dimensions.y*Math.abs(s.y));d.dimensions.z=Math.max(1,d.dimensions.z*Math.abs(s.z))}selected.scale.set(1,1,1);rebuildMagnet(selected)}else{const d=selected.userData;if(d.shape==='annular'){d.radius=Math.max(2,d.radius*(Math.abs(s.x)+Math.abs(s.y))/2)}else if(d.shape==='line'){d.displayLength=Math.max(40,(d.displayLength||280)*Math.abs(s.x))}else if(d.shape==='solenoid'){d.solenoidRadius=Math.max(.1,d.solenoidRadius*(Math.abs(s.x)+Math.abs(s.y))/2);d.solenoidLength=Math.max(.1,d.solenoidLength*Math.abs(s.z))}else{d.length=Math.max(2,d.length*Math.abs(s.x));d.endRadius=Math.max(2,d.endRadius*Math.abs(s.y))}d.wireRadius=Math.max(.15,d.wireRadius*Math.cbrt(Math.abs(s.x*s.y*s.z)));selected.scale.set(1,1,1);rebuildCoil(selected)}syncProperties();selectionBox.update();renderTree();schedule()}
@@ -575,7 +590,7 @@ function previewClone(source){
     const d=source.userData,geometry=d.shape==='cylinder'?cylinderGeometry(d.radius,d.height,48):new THREE.BoxGeometry(d.dimensions.x,d.dimensions.y,d.dimensions.z),mesh=markPreviewOwned(new THREE.Mesh(geometry,previewFillMaterial(.3)));mesh.renderOrder=1200;ghost.add(mesh);addPreviewEdges(mesh,geometry,d.shape==='cylinder'?8:1);
     if(d.shape!=='cylinder'){const dim=d.dimensions,splitGeometry=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-dim.x/2,-dim.y/2,0),new THREE.Vector3(dim.x/2,-dim.y/2,0),new THREE.Vector3(dim.x/2,dim.y/2,0),new THREE.Vector3(-dim.x/2,dim.y/2,0),new THREE.Vector3(-dim.x/2,-dim.y/2,0)]),split=markPreviewOwned(new THREE.Line(splitGeometry,previewLineMaterial(.55)));split.renderOrder=1221;ghost.add(split)}
   }else{
-    const d=source.userData,points=pathPoints(d,d.shape==='solenoid'?Math.max(192,(d.turns||1)*12+1):160),closed=coilPathClosed(d.shape),curve=d.shape==='line'?new THREE.LineCurve3(points[0],points[points.length-1]):new THREE.CatmullRomCurve3(points,closed,'centripetal'),geometry=new THREE.TubeGeometry(curve,Math.max(180,points.length),Math.max(.8,d.wireRadius*1.15),10,closed),mesh=markPreviewOwned(new THREE.Mesh(geometry,previewFillMaterial(.34)));mesh.renderOrder=1200;ghost.add(mesh);
+    const d=source.userData,points=pathPoints(d,d.shape==='solenoid'?Math.max(192,(d.turns||1)*12+1):160),closed=coilPathClosed(d.shape),curve=d.shape==='line'?new THREE.LineCurve3(points[0],points[points.length-1]):new THREE.CatmullRomCurve3(points,closed,'centripetal'),geometry=new THREE.TubeGeometry(curve,Math.max(180,points.length),d.shape==='solenoid'?Math.max(.08,solenoidVisualWireRadius(d)*1.12):Math.max(.8,d.wireRadius*1.15),d.shape==='solenoid'?8:10,closed),mesh=markPreviewOwned(new THREE.Mesh(geometry,previewFillMaterial(.34)));mesh.renderOrder=1200;ghost.add(mesh);
     const centerGeometry=new THREE.BufferGeometry().setFromPoints(closed?[...points,points[0].clone()]:points),centerline=markPreviewOwned(new THREE.Line(centerGeometry,previewLineMaterial(.96)));centerline.renderOrder=1222;ghost.add(centerline);
   }
   ghost.scale.copy(source.scale);ghost.traverse(item=>{item.visible=true;item.frustumCulled=false});return ghost;
@@ -636,7 +651,7 @@ function cadObjectRecord(o){
   return record;
 }
 function cadProjectRecord(){
-  return {format:CAD_PROJECT_FORMAT,version:CAD_PROJECT_VERSION,app_version:'4.8',saved_at:new Date().toISOString(),objects:objects.map(cadObjectRecord),display:{grid:q('#gridToggle').checked,snap:q('#snapToggle').checked,current_arrows:q('#currentArrowsToggle').checked,visual_mode:q('#visualMode').value,quick_field:q('#fieldToggle').checked,field_mode:q('#fieldMode').value,field_plane:q('#fieldPlane').value,field_density:q('#fieldDensity').value,quick_force:q('#forcesToggle').checked,quick_force_component:q('#forceComponent').value,quick_torque:q('#torqueToggle').checked,quick_torque_component:q('#torqueComponent').value},camera:{position:camera.position.toArray(),target:orbit.target.toArray(),up:camera.up.toArray()}};
+  return {format:CAD_PROJECT_FORMAT,version:CAD_PROJECT_VERSION,app_version:'4.9',saved_at:new Date().toISOString(),objects:objects.map(cadObjectRecord),display:{grid:q('#gridToggle').checked,snap:q('#snapToggle').checked,current_arrows:q('#currentArrowsToggle').checked,visual_mode:q('#visualMode').value,quick_field:q('#fieldToggle').checked,field_mode:q('#fieldMode').value,field_plane:q('#fieldPlane').value,field_density:q('#fieldDensity').value,quick_force:q('#forcesToggle').checked,quick_force_component:q('#forceComponent').value,quick_torque:q('#torqueToggle').checked,quick_torque_component:q('#torqueComponent').value},camera:{position:camera.position.toArray(),target:orbit.target.toArray(),up:camera.up.toArray()}};
 }
 function downloadCadProject(){
   const project=cadProjectRecord(),name=safeFileName(objects.length===1?objects[0].name:'magnetic_scene')+'.magcad',blob=new Blob([JSON.stringify(project,null,2)],{type:'application/json;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
@@ -657,7 +672,7 @@ function createCadObject(record,mergeOffset=null){
   }else{
     const shape=['annular','racetrack','line','solenoid'].includes(record.shape)?record.shape:'annular';
     o=createCoil(shape,String(record.name||((coilShapeLabel(shape))+' coil '+coilCount++)));
-    o.userData.shape=shape;o.userData.radius=Math.max(.1,finiteNumber(record.radius_mm,25));o.userData.length=Math.max(.1,finiteNumber(record.straight_length_mm,55));o.userData.endRadius=Math.max(.1,finiteNumber(record.end_radius_mm,18));o.userData.displayLength=Math.max(40,finiteNumber(record.display_length_mm,280));o.userData.simulationLength=Math.max(1,finiteNumber(record.simulation_length_mm,200));o.userData.solenoidRadius=Math.max(.1,finiteNumber(record.solenoid_radius_mm,20));o.userData.solenoidLength=Math.max(.1,finiteNumber(record.solenoid_length_mm,50));o.userData.turns=Math.max(1,Math.round(finiteNumber(record.turns,shape==='solenoid'?24:80)));o.userData.wireRadius=Math.max(.05,finiteNumber(record.wire_radius_mm,2.8));o.userData.current=finiteNumber(record.current_A,5);const integ=record.integration||{};o.userData.integration={path:Math.max(12,Math.round(finiteNumber(integ.path,shape==='solenoid'?384:160))),u:Math.max(1,Math.round(finiteNumber(integ.u,5))),v:Math.max(1,Math.round(finiteNumber(integ.v,5)))};rebuildCoil(o);
+    o.userData.shape=shape;o.userData.radius=Math.max(.1,finiteNumber(record.radius_mm,25));o.userData.length=Math.max(.1,finiteNumber(record.straight_length_mm,55));o.userData.endRadius=Math.max(.1,finiteNumber(record.end_radius_mm,18));o.userData.displayLength=Math.max(40,finiteNumber(record.display_length_mm,280));o.userData.simulationLength=Math.max(1,finiteNumber(record.simulation_length_mm,200));o.userData.solenoidRadius=Math.max(.1,finiteNumber(record.solenoid_radius_mm,20));o.userData.solenoidLength=Math.max(.1,finiteNumber(record.solenoid_length_mm,50));o.userData.turns=Math.max(1,Math.round(finiteNumber(record.turns,shape==='solenoid'?24:80)));o.userData.wireRadius=Math.max(.05,finiteNumber(record.wire_radius_mm,shape==='solenoid'?1.0:2.8));o.userData.current=finiteNumber(record.current_A,5);const integ=record.integration||{};o.userData.integration={path:Math.max(12,Math.round(finiteNumber(integ.path,shape==='solenoid'?384:160))),u:Math.max(1,Math.round(finiteNumber(integ.u,5))),v:Math.max(1,Math.round(finiteNumber(integ.v,5)))};rebuildCoil(o);
   }
   const position=finiteArray(record.position_mm,3,[0,0,0]),quaternion=finiteArray(record.quaternion_xyzw,4,[0,0,0,1]),scale=finiteArray(record.scale,3,[1,1,1]);o.position.fromArray(position);if(mergeOffset)o.position.add(mergeOffset);o.quaternion.fromArray(quaternion).normalize();o.scale.fromArray(scale.map(v=>Math.max(.0001,Math.abs(v))));o.visible=record.visible!==false;o.userData.locked=!!record.locked;setOwner(o);return o;
 }
@@ -754,7 +769,7 @@ function generateRadiaPython(){
   const payload=utf8Base64(JSON.stringify(sceneForRadia()));
   const cfg=utf8Base64(JSON.stringify(exportConfigFromUI()));
   return `#!/usr/bin/env python3
-"""Radia field-volume solver generated by Magnetic CAD Playground v4.8.
+"""Radia field-volume solver generated by Magnetic CAD Playground v4.9.
 
 The saved .mfield file is opened by the Results viewer in MagneticCAD.html.
 The field volume contains permanent-magnet field only. Coil loads are calculated
@@ -1012,7 +1027,7 @@ function exportRadiaScript(){const scene=sceneForRadia();if(!scene.some(item=>it
 let resultData=null,resultScene=null,resultCamera=null,resultRenderer=null,resultOrbit=null,resultGeometry=null,resultVectorsGroup=null,resultLoadsGroup=null,resultSliceMesh=null,resultResizeObserver=null;
 function initResults3D(){if(resultRenderer)return;const resultHost=q('#resultThree'),resultViewport=q('#resultViewport');resultScene=new THREE.Scene();resultScene.background=C.panel;resultGeometry=new THREE.Group();resultVectorsGroup=new THREE.Group();resultLoadsGroup=new THREE.Group();resultScene.add(resultGeometry,resultVectorsGroup,resultLoadsGroup,new THREE.HemisphereLight(0xffffff,0x30343b,2.5));const dl=new THREE.DirectionalLight(0xffffff,2.5);dl.position.set(120,-100,180);resultScene.add(dl);resultCamera=new THREE.PerspectiveCamera(42,1,.1,5000);resultCamera.up.set(0,0,1);resultCamera.position.set(160,-180,130);resultRenderer=new THREE.WebGLRenderer({antialias:true});resultRenderer.setPixelRatio(Math.min(devicePixelRatio,2));resultRenderer.domElement.className='webgl-result';resultHost.appendChild(resultRenderer.domElement);resultOrbit=new OrbitControls(resultCamera,resultRenderer.domElement);resultOrbit.enableDamping=true;resultSliceMesh=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({color:C.accent,transparent:true,opacity:.15,side:THREE.DoubleSide,depthWrite:false}));resultScene.add(resultSliceMesh);resultResizeObserver=new ResizeObserver(()=>{const w=resultViewport.clientWidth,h=resultViewport.clientHeight;resultRenderer.setSize(w,h,false);resultCamera.aspect=w/h;resultCamera.updateProjectionMatrix()});resultResizeObserver.observe(resultViewport);(function renderResult(){resultOrbit.update();resultRenderer.render(resultScene,resultCamera);requestAnimationFrame(renderResult)})()}
 function resultCoilPath(item){const d={shape:item.shape,radius:item.radius_mm,length:item.straight_length_mm,endRadius:item.end_radius_mm,displayLength:item.shape==='line'?(item.simulation_length_mm||200):(item.display_length_mm||280),solenoidRadius:item.solenoid_radius_mm||20,solenoidLength:item.solenoid_length_mm||50,turns:item.turns||1};return pathPoints(d,item.shape==='solenoid'?Math.max(192,(item.turns||1)*12+1):160)}
-function addResultGeometry(item){const group=new THREE.Group(),p=item.position_mm,qv=item.quaternion_xyzw;group.position.set(...p);group.quaternion.set(qv[0],qv[1],qv[2],qv[3]);if(item.type==='magnet'){let geometry;if(item.shape==='cylinder')geometry=cylinderGeometry(item.radius_mm,item.height_mm,item.cylinder_segments||48);else{const d=item.dimensions_mm;geometry=new THREE.BoxGeometry(d[0],d[1],d[2])}const mesh=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color:C.mag,transparent:true,opacity:.55,wireframe:true}));group.add(mesh)}else{const points=resultCoilPath(item),closed=coilPathClosed(item.shape),curve=item.shape==='line'?new THREE.LineCurve3(points[0],points[points.length-1]):new THREE.CatmullRomCurve3(points,closed,'centripetal'),mesh=new THREE.Mesh(new THREE.TubeGeometry(curve,Math.max(160,points.length),Math.max(.5,item.wire_radius_mm),10,closed),new THREE.MeshStandardMaterial({color:C.coil,transparent:true,opacity:.45,wireframe:true}));group.add(mesh)}resultGeometry.add(group)}
+function addResultGeometry(item){const group=new THREE.Group(),p=item.position_mm,qv=item.quaternion_xyzw;group.position.set(...p);group.quaternion.set(qv[0],qv[1],qv[2],qv[3]);if(item.type==='magnet'){let geometry;if(item.shape==='cylinder')geometry=cylinderGeometry(item.radius_mm,item.height_mm,item.cylinder_segments||48);else{const d=item.dimensions_mm;geometry=new THREE.BoxGeometry(d[0],d[1],d[2])}const mesh=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color:C.mag,transparent:true,opacity:.55,wireframe:true}));group.add(mesh)}else{const points=resultCoilPath(item),closed=coilPathClosed(item.shape),curve=item.shape==='line'?new THREE.LineCurve3(points[0],points[points.length-1]):new THREE.CatmullRomCurve3(points,closed,'centripetal'),resultDisplayWire=item.shape==='solenoid'?solenoidVisualWireRadius({solenoidLength:item.solenoid_length_mm,solenoidRadius:item.solenoid_radius_mm,turns:item.turns,wireRadius:item.wire_radius_mm}):Math.max(.5,item.wire_radius_mm),mesh=new THREE.Mesh(new THREE.TubeGeometry(curve,Math.max(160,points.length),resultDisplayWire,item.shape==='solenoid'?8:10,closed),new THREE.MeshStandardMaterial({color:C.coil,transparent:true,opacity:.45,wireframe:true}));group.add(mesh)}resultGeometry.add(group)}
 function parseMfield(buffer){const bytes=new Uint8Array(buffer),magic=new TextDecoder().decode(bytes.subarray(0,8));if(magic!=='MCFIELD1')throw new Error('Not a Magnetic CAD .mfield file');const view=new DataView(buffer),headerLength=view.getUint32(8,true),header=JSON.parse(new TextDecoder().decode(bytes.subarray(12,12+headerLength))),padding=(-headerLength)%4+4;let offset=12+headerLength+(padding%4);const [nx,ny,nz]=header.shape;const copyFloats=count=>{const out=new Float32Array(count);out.set(new Float32Array(buffer.slice(offset,offset+count*4)));offset+=count*4;return out};return{header,x:copyFloats(nx),y:copyFloats(ny),z:copyFloats(nz),b:copyFloats(nx*ny*nz*3),nx,ny,nz}}
 function bIndex(data,i,j,k,c){return ((((i*data.ny)+j)*data.nz+k)*3+c)}
 function bValue(data,i,j,k,component){const base=bIndex(data,i,j,k,0),bx=data.b[base],by=data.b[base+1],bz=data.b[base+2];return component==='x'?bx:component==='y'?by:component==='z'?bz:Math.hypot(bx,by,bz)}
@@ -1081,67 +1096,47 @@ function figureMagnetData(o,basis){
   const dim=d.dimensions,local=[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]].map(([x,y,z])=>new THREE.Vector3(x*dim.x/2,y*dim.y/2,z*dim.z/2).applyMatrix4(o.matrixWorld)),projected=local.map(p=>figureProject(p,basis)),faces=[{i:[0,3,2,1],n:new THREE.Vector3(0,0,-1),pole:'south'},{i:[4,5,6,7],n:new THREE.Vector3(0,0,1),pole:'north'},{i:[0,1,5,4],n:new THREE.Vector3(0,-1,0)},{i:[1,2,6,5],n:new THREE.Vector3(1,0,0)},{i:[2,3,7,6],n:new THREE.Vector3(0,1,0)},{i:[3,0,4,7],n:new THREE.Vector3(-1,0,0)}],edges=[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];return{object:o,shape:'cuboid',world:local,points:projected,boundsPoints:projected,depth:projected.reduce((s,p)=>s+p.depth,0)/projected.length,faces:faces.map(f=>({...f,normal:f.n.clone().applyMatrix3(normalMatrix).normalize(),depth:f.i.reduce((s,i)=>s+projected[i].depth,0)/4})),edges}
 }
 function figureCoilData(o,basis){
-  const pathWorld=pathPoints(o.userData,o.userData.shape==='solenoid'?Math.max(192,(o.userData.turns||1)*12+1):192).map(p=>p.applyMatrix4(o.matrixWorld));
+  const visualCount=o.userData.shape==='solenoid'?solenoidVisualPointCount(o.userData):192;
+  const pathWorld=pathPoints(o.userData,visualCount).map(p=>p.applyMatrix4(o.matrixWorld));
   const pathPoints2D=pathWorld.map(p=>figureProject(p,basis));
   const scale=o.getWorldScale(new THREE.Vector3());
-  const wire=Math.max(.2,2*o.userData.wireRadius*(Math.abs(scale.x)+Math.abs(scale.y)+Math.abs(scale.z))/3);
-  const shape=o.userData.shape,bars=[],boundsPoints=[...pathPoints2D];
+  const physicalWire=Math.max(.2,2*o.userData.wireRadius*(Math.abs(scale.x)+Math.abs(scale.y)+Math.abs(scale.z))/3);
+  const displayRadius=o.userData.shape==='solenoid'?solenoidVisualWireRadius(o.userData):o.userData.wireRadius;
+  const wire=Math.max(.16,2*displayRadius*(Math.abs(scale.x)+Math.abs(scale.y)+Math.abs(scale.z))/3);
+  const shape=o.userData.shape,bars=[],boundsPoints=[...pathPoints2D],solenoidTurns=[];
+  let solenoidAxisProjected=0;
+  if(shape==='solenoid'){
+    const turns=Math.max(1,Math.round(o.userData.turns||1)),radius=Math.max(.1,o.userData.solenoidRadius||20),length=Math.max(.1,o.userData.solenoidLength||50);
+    for(let turn=0;turn<turns;turn++){
+      const world=solenoidTurnLocalPoints(o.userData,turn,56).map(p=>p.applyMatrix4(o.matrixWorld));
+      const projected=world.map(p=>figureProject(p,basis));
+      const depth=projected.reduce((s,p)=>s+p.depth,0)/projected.length;
+      solenoidTurns.push({turn,world,points:projected,depth});
+      boundsPoints.push(...projected)
+    }
+    const a=figureProject(new THREE.Vector3(0,0,-length/2).applyMatrix4(o.matrixWorld),basis),b=figureProject(new THREE.Vector3(0,0,length/2).applyMatrix4(o.matrixWorld),basis);
+    solenoidAxisProjected=Math.hypot(b.x-a.x,b.y-a.y);
+  }
   if(shape==='racetrack'){
     const half=o.userData.length/2,r=o.userData.endRadius,t=Math.max(.5,o.userData.wireRadius);
     const normalMatrix=new THREE.Matrix3().getNormalMatrix(o.matrixWorld);
     const definitions=[[-half,-r-t,half,-r+t,'bottom'],[-half,r-t,half,r+t,'top']];
     definitions.forEach(([x1,y1,x2,y2,which])=>{
       const transform=p=>p.applyMatrix4(o.matrixWorld);
-      const baseWorld=[
-        new THREE.Vector3(x1,y1,0),new THREE.Vector3(x2,y1,0),
-        new THREE.Vector3(x2,y2,0),new THREE.Vector3(x1,y2,0)
-      ].map(transform);
+      const baseWorld=[new THREE.Vector3(x1,y1,0),new THREE.Vector3(x2,y1,0),new THREE.Vector3(x2,y2,0),new THREE.Vector3(x1,y2,0)].map(transform);
       const basePoints=baseWorld.map(p=>figureProject(p,basis));
-      const centreWorld=transform(new THREE.Vector3((x1+x2)/2,(y1+y2)/2,0));
-      const centre=figureProject(centreWorld,basis);
-      const lineStart=figureProject(transform(new THREE.Vector3(x1,(y1+y2)/2,0)),basis);
-      const lineEnd=figureProject(transform(new THREE.Vector3(x2,(y1+y2)/2,0)),basis);
-      const width=(
-        Math.hypot(basePoints[0].x-basePoints[3].x,basePoints[0].y-basePoints[3].y)+
-        Math.hypot(basePoints[1].x-basePoints[2].x,basePoints[1].y-basePoints[2].y)
-      )/2;
-      const tangentLocal=(which==='bottom'?new THREE.Vector3(1,0,0):new THREE.Vector3(-1,0,0))
-        .multiplyScalar(o.userData.current>=0?1:-1);
-      const tangentWorld=tangentLocal.transformDirection(o.matrixWorld);
-
-      // Rectangular active conductor volume: base rectangle extruded along the
-      // local coil Z direction. This is a genuine projected parallelepiped.
-      const prismWorld=[
-        new THREE.Vector3(x1,y1,-t),new THREE.Vector3(x2,y1,-t),
-        new THREE.Vector3(x2,y2,-t),new THREE.Vector3(x1,y2,-t),
-        new THREE.Vector3(x1,y1, t),new THREE.Vector3(x2,y1, t),
-        new THREE.Vector3(x2,y2, t),new THREE.Vector3(x1,y2, t)
-      ].map(transform);
+      const centreWorld=transform(new THREE.Vector3((x1+x2)/2,(y1+y2)/2,0)),centre=figureProject(centreWorld,basis);
+      const lineStart=figureProject(transform(new THREE.Vector3(x1,(y1+y2)/2,0)),basis),lineEnd=figureProject(transform(new THREE.Vector3(x2,(y1+y2)/2,0)),basis);
+      const width=(Math.hypot(basePoints[0].x-basePoints[3].x,basePoints[0].y-basePoints[3].y)+Math.hypot(basePoints[1].x-basePoints[2].x,basePoints[1].y-basePoints[2].y))/2;
+      const tangentLocal=(which==='bottom'?new THREE.Vector3(1,0,0):new THREE.Vector3(-1,0,0)).multiplyScalar(o.userData.current>=0?1:-1),tangentWorld=tangentLocal.transformDirection(o.matrixWorld);
+      const prismWorld=[new THREE.Vector3(x1,y1,-t),new THREE.Vector3(x2,y1,-t),new THREE.Vector3(x2,y2,-t),new THREE.Vector3(x1,y2,-t),new THREE.Vector3(x1,y1,t),new THREE.Vector3(x2,y1,t),new THREE.Vector3(x2,y2,t),new THREE.Vector3(x1,y2,t)].map(transform);
       const prismPoints=prismWorld.map(p=>figureProject(p,basis));
-      const prismFaces=[
-        {i:[0,3,2,1],n:new THREE.Vector3(0,0,-1)},
-        {i:[4,5,6,7],n:new THREE.Vector3(0,0,1)},
-        {i:[0,1,5,4],n:new THREE.Vector3(0,-1,0)},
-        {i:[1,2,6,5],n:new THREE.Vector3(1,0,0)},
-        {i:[2,3,7,6],n:new THREE.Vector3(0,1,0)},
-        {i:[3,0,4,7],n:new THREE.Vector3(-1,0,0)}
-      ].map(face=>({
-        ...face,
-        normal:face.n.clone().applyMatrix3(normalMatrix).normalize(),
-        depth:face.i.reduce((sum,index)=>sum+prismPoints[index].depth,0)/face.i.length
-      }));
+      const prismFaces=[{i:[0,3,2,1],n:new THREE.Vector3(0,0,-1)},{i:[4,5,6,7],n:new THREE.Vector3(0,0,1)},{i:[0,1,5,4],n:new THREE.Vector3(0,-1,0)},{i:[1,2,6,5],n:new THREE.Vector3(1,0,0)},{i:[2,3,7,6],n:new THREE.Vector3(0,1,0)},{i:[3,0,4,7],n:new THREE.Vector3(-1,0,0)}].map(face=>({...face,normal:face.n.clone().applyMatrix3(normalMatrix).normalize(),depth:face.i.reduce((sum,index)=>sum+prismPoints[index].depth,0)/face.i.length}));
       boundsPoints.push(...prismPoints);
-      bars.push({
-        which,basePoints,centre,centreWorld,tangent:tangentWorld,
-        lineStart,lineEnd,width,
-        prism:{points:prismPoints,faces:prismFaces}
-      });
+      bars.push({which,basePoints,centre,centreWorld,tangent:tangentWorld,lineStart,lineEnd,width,prism:{points:prismPoints,faces:prismFaces}});
     });
   }
-  return{
-    object:o,shape,pathWorld,pathPoints:pathPoints2D,points:pathPoints2D,boundsPoints,wire,bars,
-    depth:pathPoints2D.reduce((sum,p)=>sum+p.depth,0)/Math.max(1,pathPoints2D.length)
-  };
+  return{object:o,shape,pathWorld,pathPoints:pathPoints2D,points:pathPoints2D,boundsPoints,wire,physicalWire,bars,solenoidTurns,solenoidAxisProjected,depth:pathPoints2D.reduce((sum,p)=>sum+p.depth,0)/Math.max(1,pathPoints2D.length)};
 }
 function figureBounds(data){let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;const include=p=>{minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y)};data.items.forEach(item=>(item.data.boundsPoints||item.data.points).forEach(include));figureFieldPlanePoints(figureFieldData,data.basis,data.settings).forEach(include);if(!Number.isFinite(minX))return{x:-100,y:-70,w:200,h:140};let w=Math.max(1,maxX-minX),h=Math.max(1,maxY-minY),pad=Math.max(w,h)*((data.settings.showForce||data.settings.showTorque||data.settings.showField)?.22:.12)+4;return{x:minX-pad,y:minY-pad,w:w+2*pad,h:h+2*pad}}
 function figurePath(points,closed=true){return points.length?'M '+points.map(p=>p.x.toFixed(4)+' '+p.y.toFixed(4)).join(' L ')+(closed?' Z':''):''}
@@ -1183,6 +1178,33 @@ function renderFigureCoil(item,data,line,arrowHead,arrowLength){
     if(toward)return ring+`<circle cx="${cx}" cy="${cy}" r="${line*1.55}" fill="${style.currentColor}"/>`;
     return ring+`<path d="M ${cx-radius*.5} ${cy-radius*.5} L ${cx+radius*.5} ${cy+radius*.5} M ${cx+radius*.5} ${cy-radius*.5} L ${cx-radius*.5} ${cy+radius*.5}" stroke="${style.currentColor}" stroke-width="${line*1.15}" fill="none" stroke-linecap="round"/>`;
   };
+
+  if(c.shape==='solenoid'){
+    const turns=c.solenoidTurns||[],turnCount=turns.length;
+    if(!turnCount)return'';
+    const radius=Math.max(.1,c.object.userData.solenoidRadius||20),axisNearlyNormal=c.solenoidAxisProjected<radius*.28;
+    const visibleTurns=axisNearlyNormal?[turns[Math.floor((turnCount-1)/2)]]:[...turns].sort((a,b)=>a.depth-b.depth);
+    const bodyStroke=style.mode==='filled'?Math.max(.18,c.wire):line*(style.mode==='outline'?1.75:1.1);
+    const outlineStroke=style.mode==='filled'?bodyStroke+2.0*line:0;
+    visibleTurns.forEach(turn=>{
+      const ringPath=figurePath(turn.points,true);
+      if(style.mode==='filled'){
+        out.push(`<path d="${ringPath}" fill="none" stroke="${style.outline}" stroke-width="${outlineStroke}" stroke-linejoin="round" stroke-linecap="round"/>`);
+        out.push(`<path d="${ringPath}" fill="none" stroke="${style.coilColor}" stroke-opacity="${style.opacity}" stroke-width="${bodyStroke}" stroke-linejoin="round" stroke-linecap="round"/>`);
+      }else out.push(`<path d="${ringPath}" fill="none" stroke="${style.coilColor}" stroke-width="${bodyStroke}" stroke-linejoin="round" stroke-linecap="round"/>`);
+    });
+    if(style.showOverlay){
+      const requested=Math.max(1,Math.min(style.currentCount,axisNearlyNormal?2:6,turnCount)),sign=c.object.userData.current>=0?1:-1;
+      for(let n=0;n<requested;n++){
+        const turn=visibleTurns[Math.min(visibleTurns.length-1,Math.floor((n+.5)*visibleTurns.length/requested))],pts=turn.points,N=pts.length;
+        let i=Math.floor((.08+.72*(n/Math.max(1,requested-1)))*N)%N,j=(i+sign+N)%N,p=pts[i],next=pts[j],dx=next.x-p.x,dy=next.y-p.y,len=Math.hypot(dx,dy);
+        if(len<1e-7)continue;
+        const ux=dx/len,uy=dy/len,L=Math.min(arrowLength*.72,Math.max(c.wire*3.2,arrowLength*.46));
+        out.push(figureArrowSvg(p.x-.38*L*ux,p.y-.38*L*uy,p.x+.38*L*ux,p.y+.38*L*uy,style.currentColor,line*1.12,arrowHead*.68));
+      }
+    }
+    return out.join('');
+  }
 
   if(c.shape==='line'){
     const start=c.pathPoints[0],end=c.pathPoints[c.pathPoints.length-1];
@@ -1411,7 +1433,7 @@ q('#groupBarToggle').onclick=()=>{const bar=q('#groupToolbar'),opening=bar.hidde
 q('#addMagnet').onclick=()=>{const shape=q('#newMagnetShape').value,o=createMagnet(null,shape);o.position.set(-20+objects.length*4,0,25);chooseTool('translate');commitCadHistory('Add '+magnetShapeLabel(shape).toLowerCase()+' magnet')};q('#addCoil').onclick=()=>{const shape=q('#newCoilShape').value,o=createCoil(shape);o.position.set(20+objects.length*4,0,0);chooseTool('translate');commitCadHistory('Add '+coilShapeLabel(shape).toLowerCase()+' coil')};q('#selectTool').onclick=()=>chooseTool('select');q('#moveTool').onclick=()=>chooseTool('translate');q('#rotateTool').onclick=()=>chooseTool('rotate');q('#resizeTool').onclick=()=>chooseTool('scale');q('#deleteTool').onclick=deleteSelected;q('#duplicate').onclick=duplicateSelected;
 q('#gridToggle').onchange=e=>{grid.visible=e.target.checked;commitCadHistory('Change display')};q('#snapToggle').onchange=e=>{transform.setTranslationSnap(e.target.checked?5:null);transform.setRotationSnap(e.target.checked?THREE.MathUtils.degToRad(15):null);transform.setScaleSnap(e.target.checked?.1:null);commitCadHistory('Change snapping')};['#currentArrowsToggle','#visualMode','#fieldToggle','#fieldMode','#fieldPlane','#fieldDensity','#forcesToggle','#forceComponent','#torqueToggle','#torqueComponent'].forEach(id=>q(id).onchange=()=>{schedule();commitCadHistory('Change display')});root.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>setView(b.dataset.view));
 q('#objectName').onchange=e=>{if(selected){selected.name=e.target.value||selected.name;renderTree();selectObject(selected);commitCadHistory('Rename body')}};q('#lockProperty').onchange=e=>{if(selected)setLocked(selected,e.target.checked)};root.querySelectorAll('.transform-value').forEach(input=>input.onchange=()=>{if(!selected||selected.userData.locked)return;selected.position.set(+q('#px').value||0,+q('#py').value||0,+q('#pz').value||0);selected.rotation.set(THREE.MathUtils.degToRad(+q('#rx').value||0),THREE.MathUtils.degToRad(+q('#ry').value||0),THREE.MathUtils.degToRad(+q('#rz').value||0));selectionBox.update();schedule();commitCadHistory('Transform body')});root.querySelectorAll('.magnet-dimension').forEach(input=>input.onchange=()=>{if(!selected||selected.userData.type!=='magnet')return;selected.userData.dimensions={x:Math.max(1,+q('#mx').value),y:Math.max(1,+q('#my').value),z:Math.max(1,+q('#mz').value)};rebuildMagnet(selected);selectionBox.update();renderTree();schedule();commitCadHistory('Resize magnet')});root.querySelectorAll('.cylinder-magnet-geometry').forEach(input=>input.onchange=()=>{if(!selected||selected.userData.type!=='magnet')return;selected.userData.radius=Math.max(.1,+q('#magnetRadius').value||18);selected.userData.height=Math.max(.1,+q('#magnetHeight').value||14);rebuildMagnet(selected);selectionBox.update();renderTree();schedule();commitCadHistory('Resize cylindrical magnet')});q('#magnetShape').onchange=e=>{if(!selected||selected.userData.type!=='magnet')return;selected.userData.shape=e.target.value==='cylinder'?'cylinder':'cuboid';rebuildMagnet(selected);syncProperties();renderTree();selectionBox.update();schedule();commitCadHistory('Change magnet shape')};
-function setStrength(v){if(!selected||selected.userData.type!=='magnet')return;selected.userData.strength=Math.max(.2,+v||1);q('#magnetStrength').value=q('#magnetStrengthValue').value=selected.userData.strength;schedule()}q('#magnetStrength').oninput=e=>setStrength(e.target.value);q('#magnetStrength').onchange=()=>commitCadHistory('Change magnetization');q('#magnetStrengthValue').onchange=e=>{setStrength(e.target.value);commitCadHistory('Change magnetization')};q('#coilShape').onchange=e=>{if(!selected||selected.userData.type!=='coil')return;selected.userData.shape=e.target.value;if(e.target.value==='solenoid'&&selected.userData.turns>60)selected.userData.turns=24;if(e.target.value==='solenoid'&&selected.userData.integration.path<192)selected.userData.integration.path=384;rebuildCoil(selected);syncProperties();renderTree();selectionBox.update();schedule();commitCadHistory('Change coil shape')};function updateCoil(){if(!selected||selected.userData.type!=='coil')return;const d=selected.userData;d.radius=Math.max(2,+q('#coilRadius').value||25);d.length=Math.max(2,+q('#racetrackLength').value||55);d.endRadius=Math.max(2,+q('#racetrackRadius').value||18);d.solenoidRadius=Math.max(.1,+q('#solenoidRadius').value||20);d.solenoidLength=Math.max(.1,+q('#solenoidLength').value||50);d.turns=Math.max(1,Math.round(+q('#coilTurns').value||1));d.wireRadius=Math.max(.15,+q('#wireRadius').value||2.8);rebuildCoil(selected);selectionBox.update();renderTree();schedule();commitCadHistory('Edit coil geometry')}root.querySelectorAll('.coil-geometry').forEach(input=>input.onchange=updateCoil);function setCurrent(v){if(!selected||selected.userData.type!=='coil')return;selected.userData.current=Math.max(-20,Math.min(20,+v||0));q('#coilCurrent').value=q('#coilCurrentValue').value=selected.userData.current;rebuildCoil(selected);renderTree();schedule()}q('#coilCurrent').oninput=e=>setCurrent(e.target.value);q('#coilCurrent').onchange=()=>commitCadHistory('Change coil current');q('#coilCurrentValue').onchange=e=>{setCurrent(e.target.value);commitCadHistory('Change coil current')};
+function setStrength(v){if(!selected||selected.userData.type!=='magnet')return;selected.userData.strength=Math.max(.2,+v||1);q('#magnetStrength').value=q('#magnetStrengthValue').value=selected.userData.strength;schedule()}q('#magnetStrength').oninput=e=>setStrength(e.target.value);q('#magnetStrength').onchange=()=>commitCadHistory('Change magnetization');q('#magnetStrengthValue').onchange=e=>{setStrength(e.target.value);commitCadHistory('Change magnetization')};q('#coilShape').onchange=e=>{if(!selected||selected.userData.type!=='coil')return;const previous=selected.userData.shape;selected.userData.shape=e.target.value;if(e.target.value==='solenoid'){if(previous!=='solenoid'&&selected.userData.turns>40)selected.userData.turns=12;if(previous!=='solenoid'&&selected.userData.wireRadius>1.8)selected.userData.wireRadius=1.0;if(selected.userData.integration.path<192)selected.userData.integration.path=384}rebuildCoil(selected);syncProperties();renderTree();selectionBox.update();schedule();commitCadHistory('Change coil shape')};function updateCoil(){if(!selected||selected.userData.type!=='coil')return;const d=selected.userData;d.radius=Math.max(2,+q('#coilRadius').value||25);d.length=Math.max(2,+q('#racetrackLength').value||55);d.endRadius=Math.max(2,+q('#racetrackRadius').value||18);d.solenoidRadius=Math.max(.1,+q('#solenoidRadius').value||20);d.solenoidLength=Math.max(.1,+q('#solenoidLength').value||50);d.turns=Math.max(1,Math.round(+q('#coilTurns').value||1));d.wireRadius=Math.max(.15,+q('#wireRadius').value||2.8);rebuildCoil(selected);selectionBox.update();renderTree();schedule();commitCadHistory('Edit coil geometry')}root.querySelectorAll('.coil-geometry').forEach(input=>input.onchange=updateCoil);function setCurrent(v){if(!selected||selected.userData.type!=='coil')return;selected.userData.current=Math.max(-20,Math.min(20,+v||0));q('#coilCurrent').value=q('#coilCurrentValue').value=selected.userData.current;rebuildCoil(selected);renderTree();schedule()}q('#coilCurrent').oninput=e=>setCurrent(e.target.value);q('#coilCurrent').onchange=()=>commitCadHistory('Change coil current');q('#coilCurrentValue').onchange=e=>{setCurrent(e.target.value);commitCadHistory('Change coil current')};
 q('#sceneMenu').onclick=()=>{q('#scenePanel').classList.toggle('open');q('#propertyPanel').classList.remove('open')};q('#propertyMenu').onclick=()=>{q('#propertyPanel').classList.toggle('open');q('#scenePanel').classList.remove('open')};const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();renderer.domElement.onpointerdown=e=>pointerStart={x:e.clientX,y:e.clientY};renderer.domElement.onpointerup=e=>{if(!pointerStart||Math.hypot(e.clientX-pointerStart.x,e.clientY-pointerStart.y)>4)return;const r=renderer.domElement.getBoundingClientRect();pointer.set(2*(e.clientX-r.left)/r.width-1,-2*(e.clientY-r.top)/r.height+1);raycaster.setFromCamera(pointer,camera);const hits=raycaster.intersectObjects(objectsGroup.children,true);selectObject(hits.length?(hits[0].object.userData.owner||hits[0].object):null)};addEventListener('keydown',e=>{const command=e.ctrlKey||e.metaKey,key=e.key.toLowerCase();if(command&&((e.shiftKey&&key==='z')||key==='y')){e.preventDefault();redoCad();return}if(command&&key==='z'){e.preventDefault();undoCad();return}if(command&&key==='s'){e.preventDefault();downloadCadProject();return}if(command&&key==='o'){e.preventDefault();q('#openCadFile').value='';q('#openCadFile').click();return}if(['INPUT','SELECT'].includes(document.activeElement?.tagName))return;const k=e.key.toLowerCase();if(k==='w')chooseTool('translate');if(k==='e')chooseTool('rotate');if(k==='r')chooseTool('scale');if(k==='f')fitView();if(e.key==='Delete')deleteSelected()});new ResizeObserver(()=>{const w=viewport.clientWidth,h=viewport.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}).observe(viewport);(function animate(){orbit.update();if(selected)selectionBox.update();renderer.render(scene,camera);triadDirection.copy(camera.position).sub(orbit.target).normalize().multiplyScalar(3);triadCamera.position.copy(triadDirection);triadCamera.up.copy(camera.up);triadCamera.lookAt(0,0,0);triadRenderer.render(triadScene,triadCamera);requestAnimationFrame(animate)})();
 const magnet=createMagnet('Fixed magnet','cuboid');magnet.position.set(-38,0,30);magnet.rotation.y=THREE.MathUtils.degToRad(18);magnet.userData.locked=true;const annular=createCoil('annular','Annular drive coil');annular.position.set(30,0,0);annular.userData.current=7.5;rebuildCoil(annular);const racetrack=createCoil('racetrack','Racetrack coil');racetrack.position.set(0,55,5);racetrack.rotation.x=THREE.MathUtils.degToRad(20);racetrack.userData.current=-4;rebuildCoil(racetrack);selectObject(annular);chooseTool('translate');renderTree();setView('iso');schedule();fitExportBox();resetCadHistory('Initial scene');
 </script>

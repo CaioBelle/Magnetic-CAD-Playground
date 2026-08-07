@@ -770,3 +770,14 @@ v4.8 cylindrical magnet + solenoid
 - Solenoid and cylindrical-magnet geometry is reconstructed from .mfield metadata in the Results viewer and is available in Figure Studio SVG/PNG drawings.
 - CAD project format version increased to 2 while remaining backward-compatible with version-1 .magcad files.
 
+v4.9 solenoid visual rebuild
+----------------------------
+- Rebuilt the solenoid CAD visualization around a smooth high-resolution open helix.
+- New solenoids default to 12 turns and 1.0 mm wire radius, avoiding the physically overlapping 24-turn / 2.8 mm-radius default from v4.8.
+- The physical wire radius remains untouched for Radia. CAD, previews, Results viewer, and Figure Studio use a display-only thickness limiter when the entered wire is larger than the available turn pitch.
+- Reduced and resized 3D current arrows on solenoids to avoid hiding the winding geometry.
+- Figure Studio no longer renders a solenoid through the generic coil-path routine. It uses a dedicated turn-by-turn projected representation with depth ordering.
+- Axial views collapse the repeated projected turns to one clean representative ring instead of over-drawing the same circle many times.
+- Side and isometric views show the individual turns cleanly and limit current-direction arrows to a readable subset.
+- The Radia helical path, physical wire radius, J x B volume integration, .magcad data, and .mfield physics metadata are unchanged.
+
