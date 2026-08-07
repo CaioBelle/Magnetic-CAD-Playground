@@ -90,3 +90,6 @@ v2.2 construction-preview update:
 - Linear pattern now shows translucent copies and a dashed gray construction line.
 - Mirror now shows a translucent mirrored body, a transparent gray construction plane, and a connecting line.
 - All three previews update live and are removed on Apply or Cancel.
+
+
+v2.3: stronger translucent group-operation previews; full circular construction ring and automatic non-zero pivot offset when the selected source initially lies on the rotation axis.
