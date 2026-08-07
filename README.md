@@ -1,5 +1,5 @@
-# Magnetic CAD Playground v4.1
+# Magnetic CAD Playground v4.2
 
-Historical stable snapshot: **v4.1 — Infinite-line coil**.
+Historical stable snapshot: **v4.2 — Selectable Figure Studio load arrows**.
 
 Open `MagneticCAD.html` in a modern browser. Internet access is required for the pinned Three.js modules.
