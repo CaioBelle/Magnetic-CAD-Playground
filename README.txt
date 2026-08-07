@@ -82,3 +82,11 @@ v2.1 circular-pattern update:
 - Live translucent preview updates before applying.
 - Angular spacing = total angle / (additional copies + 1).
 - Example: 4 additional copies over 360 degrees gives 72-degree spacing.
+
+
+v2.2 construction-preview update:
+- Fixed circular-preview collapse caused by setting the pivot to the selected body centre.
+- Circular pattern now shows translucent copies, a dashed gray trajectory, the global axis, and pivot marker.
+- Linear pattern now shows translucent copies and a dashed gray construction line.
+- Mirror now shows a translucent mirrored body, a transparent gray construction plane, and a connecting line.
+- All three previews update live and are removed on Apply or Cancel.
