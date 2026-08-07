@@ -728,3 +728,14 @@ v4.5 legend polish
 - Rebuilt the torque legend sample as a true curved circular arrow with a tangent-aligned arrowhead.
 - Added a Transparent background switch directly above the legend background-colour control.
 - When transparent legend background is enabled, the legend border and text remain visible while the box fill is removed.
+
+v4.7 legend refinement
+----------------------
+- Removed the per-entry square boxes introduced in v4.6.
+- Restored a compact scientific/MATLAB-style legend: one outer frame only.
+- Legend title remains bold and centered, but is now almost the same size as entry text.
+- Tightened title spacing, row spacing, padding, and overall width/height proportions.
+- Retained the horizontal divider below the title.
+- Magnet, coil, current, magnetization, Radia-field, force, and torque symbols are drawn directly in the symbol column without surrounding cells.
+- Existing transparent-background support and legend content controls are unchanged.
+
