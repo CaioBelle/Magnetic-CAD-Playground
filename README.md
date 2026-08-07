@@ -55,3 +55,12 @@ CAD PROJECT FILES (v1.7)
 Save CAD downloads a .magcad JSON project containing all magnets, coils, transforms, currents, locks, visibility, Radia settings, display settings, and camera view.
 Open CAD replaces the current scene. Import CAD merges another project with a small positional offset.
 Keyboard shortcuts: Ctrl+S saves, Ctrl+O opens.
+
+v1.8 additions
+---------------
+- Semi-transparent world X/Y/Z orientation triad in the lower-left of the CAD viewport.
+- Collapsible group-operation toolbar (triangle button in the main toolbar).
+- Revolve selected body around global X/Y/Z through a configurable pivot.
+- Linear pattern with configurable copy count and X/Y/Z step.
+- Mirror about XY, YZ, or XZ with configurable plane offset.
+- Operation settings temporarily replace the right properties panel; Apply or Cancel restores it.
