@@ -4,6 +4,8 @@ A lightweight browser CAD for building magnetic systems with permanent magnets a
 
 Current stable version: **v5.0**
 
+Branch Offline has an offline version ready that runs with a local server (not set as default because of the simplicity of the CSS+JS).
+
 ## Run
 
 Open:
