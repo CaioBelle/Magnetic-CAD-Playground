@@ -30,19 +30,20 @@ No installation is required. Internet access is needed to load the pinned Three.
 
 ## Radia workflow
 
+Magnetic calculations use [Radia](https://github.com/ochubar/Radia), ESRF's 3D magnetostatics code, through its Python interface.
+
+For a solve, Magnetic CAD generates a Python script directly from the CAD scene. Cuboid permanent magnets are created with `rad.ObjRecMag`, cylindrical magnets with `rad.ObjCylMag`, and their position, orientation and magnetization are transferred to the Radia model. The permanent-magnet field is then sampled with `rad.Fld`.
+
 1. Build the magnetic scene.
 2. Click **Radia solve…**
 3. Define the field box, sampling and source/integration resolution.
 4. Download the generated `*_radia_solve.py`.
-5. Run it in a Python environment with **Radia** installed:
-
-```bash
-python magnetic_scene_radia_solve.py
-```
-
+5. Run it in a Python environment with **Radia** installed.
 6. Open the generated `.mfield` with **Results viewer**.
 
-The `.mfield` stores the sampled magnetic field, scene geometry and calculated coil loads.
+The `.mfield` stores the sampled magnetic field, scene geometry and calculated coil loads. Coil force and torque are obtained by numerical integration of the Lorentz force `J × B` over the conductor volume.
+
+The `magnetics` branch extends this workflow with straight-line magnetic-field integrals using `rad.FldInt()`, with independently configurable integration and scan directions.
 
 ## Figure Studio
 
