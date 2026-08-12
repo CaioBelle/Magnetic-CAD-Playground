@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Magnetic CAD Playground v5.0</title>
+<title>Magnetic CAD Playground v5.2 · magnetics</title>
 <link rel="icon" type="image/png" href="magneticcad_icon.png">
 <link rel="shortcut icon" type="image/png" href="magneticcad_icon.png">
 <style>
@@ -109,6 +109,7 @@ button,input,select{font:inherit}.app{height:100%;min-height:0;padding:7px;displ
         <select class="select" id="visualMode" style="width:auto"><option value="solid">Solid view</option><option value="contour">Contours + current</option><option value="transparent">Transparent sources</option></select>
         <span class="grow"></span>
         <label class="switch"><input id="fieldToggle" type="checkbox" checked>Fields</label>
+        <select class="select" id="fieldQuantity" style="width:auto" title="Conceptual field quantity"><option value="b">B field</option><option value="h">H field (μ₀H)</option></select>
         <select class="select" id="fieldMode" style="width:auto"><option value="resultant">Resultant</option><option value="individual">Individual</option></select>
         <select class="select" id="fieldPlane" style="width:auto"><option value="xy">XY plane</option><option value="xz">XZ plane</option><option value="yz">YZ plane</option><option value="volume">3D volume</option></select>
         <select class="select" id="fieldDensity" style="width:auto"><option value="11">Dense</option><option value="15" selected>Very dense</option><option value="19">Ultra dense</option></select>
@@ -116,7 +117,7 @@ button,input,select{font:inherit}.app{height:100%;min-height:0;padding:7px;displ
         <select class="select" id="forceComponent" style="width:auto"><option value="res">Fres</option><option value="x">Fx</option><option value="y">Fy</option><option value="z">Fz</option></select>
         <label class="switch"><input id="torqueToggle" type="checkbox" checked>Torque</label>
         <select class="select" id="torqueComponent" style="width:auto"><option value="res">Mres</option><option value="x">Mx</option><option value="y">My</option><option value="z">Mz</option></select>
-        <div class="legend"><span><i class="swatch" style="background:var(--mag)"></i>Magnet</span><span><i class="swatch" style="background:var(--coil)"></i>Coil</span><span><i class="swatch" style="background:var(--accent)"></i>Resultant field</span><span><i class="swatch" style="background:var(--force)"></i>Force</span><span><i class="swatch" style="background:var(--torque)"></i>Torque</span></div>
+        <div class="legend"><span><i class="swatch" style="background:var(--mag)"></i>Magnet</span><span><i class="swatch" style="background:var(--coil)"></i>Coil</span><span><i class="swatch" style="background:var(--accent)"></i><span id="fieldLegendLabel">Resultant B</span></span><span><i class="swatch" style="background:var(--force)"></i>Force</span><span><i class="swatch" style="background:var(--torque)"></i>Torque</span></div>
       </div>
       <div class="host" id="viewport"><div id="threeHost"></div><div class="axis-triad" id="axisTriad" aria-label="World X Y Z orientation"></div><div class="badge" id="selectionBadge">No selection</div><div class="status" id="status">Conceptual field preview</div><div class="help">Orbit: left drag · Pan: right drag · Zoom: wheel · W move · E rotate · R resize · F fit</div></div>
     </section>
@@ -187,15 +188,37 @@ button,input,select{font:inherit}.app{height:100%;min-height:0;padding:7px;displ
 
   <div class="overlay" id="exportModal" hidden>
     <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
-      <div class="dialog-head"><span class="title" id="exportTitle">Export Radia field solve</span><span class="meta">Magnet field + Lorentz force on coils</span><span class="grow"></span><button class="btn icon" id="closeExport">×</button></div>
+      <div class="dialog-head"><span class="title" id="exportTitle">Export Radia field solve</span><span class="meta">B / μ₀H volumes + B-field integrals + coil loads</span><span class="grow"></span><button class="btn icon" id="closeExport">×</button></div>
       <div class="dialog-body">
-        <div class="hint" style="margin-top:0"><strong>Solver scope:</strong> the exported 3D field contains the permanent-magnet contribution. Coils are not added as field sources; their forces and torques are obtained from the volume integral <em>J × B</em> using the quadrature below.</div>
+        <div class="hint" style="margin-top:0"><strong>Solver scope:</strong> the exported 3D volumes contain the permanent-magnet B and μ₀H fields. Optional straight-line B integrals use <code>rad.FldInt()</code>. Coils are not field sources; their loads remain the volume integral <em>J × B</em>.</div>
         <div class="sub" style="margin-top:14px">Field box — centre [mm]</div>
         <div class="export-grid"><input class="input export-config" id="boxCx" type="number" step="1"><input class="input export-config" id="boxCy" type="number" step="1"><input class="input export-config" id="boxCz" type="number" step="1"></div>
         <div class="sub" style="margin-top:12px">Field box — size X/Y/Z [mm]</div>
         <div class="export-grid"><input class="input export-config" id="boxSx" type="number" min="1" step="1"><input class="input export-config" id="boxSy" type="number" min="1" step="1"><input class="input export-config" id="boxSz" type="number" min="1" step="1"></div>
         <div class="sub" style="margin-top:12px">Sampling points X/Y/Z</div>
         <div class="export-grid"><input class="input export-config" id="gridNx" type="number" min="2" max="151" step="1" value="31"><input class="input export-config" id="gridNy" type="number" min="2" max="151" step="1" value="31"><input class="input export-config" id="gridNz" type="number" min="2" max="151" step="1" value="31"></div>
+
+        <div class="sub" style="margin-top:16px">Field-integral scan — rad.FldInt()</div>
+        <label class="switch" style="margin-top:7px"><input class="export-config" id="integralEnabled" type="checkbox">Store a 1D B-field integral scan in the .mfield</label>
+        <div id="integralConfig" style="margin-top:9px;opacity:.55">
+          <div class="grid2">
+            <div><label class="label">Integral extent</label><select class="select export-config" id="integralMode"><option value="inf">Infinite line</option><option value="fin">Finite segment</option></select></div>
+            <div><label class="label">Finite length [mm]</label><input class="input export-config" id="integralLength" type="number" min="0.001" step="1" value="300" disabled></div>
+          </div>
+          <div class="label" style="margin-top:9px">Scan centre X/Y/Z [mm]</div>
+          <div class="export-grid"><input class="input export-config" id="integralCx" type="number" step="1" value="0"><input class="input export-config" id="integralCy" type="number" step="1" value="0"><input class="input export-config" id="integralCz" type="number" step="1" value="0"></div>
+          <div class="label" style="margin-top:9px">Integration direction dx/dy/dz</div>
+          <div class="export-grid"><input class="input export-config" id="integralDx" type="number" step="0.01" value="1"><input class="input export-config" id="integralDy" type="number" step="0.01" value="0"><input class="input export-config" id="integralDz" type="number" step="0.01" value="0"></div>
+          <div class="label" style="margin-top:9px">Scan direction dx/dy/dz</div>
+          <div class="export-grid"><input class="input export-config" id="scanDx" type="number" step="0.01" value="0"><input class="input export-config" id="scanDy" type="number" step="0.01" value="1"><input class="input export-config" id="scanDz" type="number" step="0.01" value="0"></div>
+          <div class="grid3" style="margin-top:9px">
+            <div><label class="label">Scan start [mm]</label><input class="input export-config" id="scanStart" type="number" step="1" value="-100"></div>
+            <div><label class="label">Scan end [mm]</label><input class="input export-config" id="scanEnd" type="number" step="1" value="100"></div>
+            <div><label class="label">Scan points</label><input class="input export-config" id="scanCount" type="number" min="2" max="5001" step="1" value="201"></div>
+          </div>
+          <div class="meta" style="margin-top:7px">All three Cartesian integrals ∫Bx ds, ∫By ds and ∫Bz ds are saved. The Results viewer chooses which one to plot.</div>
+        </div>
+
         <label class="label" style="margin-top:12px">Result .mfield path</label>
         <input class="input export-config" id="resultOutputPath" type="text" value="magnetic_scene.mfield" placeholder="C:\Users\GRAZZIBE\AppData\Local\Programs\Microsoft VS Code\magnetic_scene.mfield">
         <div class="meta" style="margin-top:5px">Absolute Windows paths and relative paths are accepted. The generated Radia script uses this as its default output path.</div>
@@ -417,8 +440,13 @@ button,input,select{font:inherit}.app{height:100%;min-height:0;padding:7px;displ
         <div class="panel-head"><span class="title">Solved scene</span></div>
         <div class="result-section"><div class="results-tree" id="resultsTree"><div class="meta">No result loaded.</div></div></div>
         <div class="result-section">
-          <div class="sub">Permanent-magnet field</div>
-          <label class="switch"><input id="resultVectors" type="checkbox" checked>Show magnet field</label>
+          <div class="sub">Solved quantity</div>
+          <select class="select" id="resultQuantity" style="margin-top:7px"><option value="b">B field</option><option value="h">H field (μ₀H)</option><option value="integral">B-field integral scan</option></select>
+          <div class="meta" id="resultQuantityNote" style="margin-top:6px">Choose the solved magnetic quantity to inspect.</div>
+        </div>
+        <div class="result-section" id="resultFieldControls">
+          <div class="sub" id="resultFieldControlsTitle">Permanent-magnet B field</div>
+          <label class="switch"><input id="resultVectors" type="checkbox" checked><span id="resultVectorsLabel">Show B field</span></label>
           <label class="label">Number of arrows</label>
           <div class="result-control-row"><input id="resultArrowCount" type="range" min="1" max="1000" value="1000"><input class="input result-value" id="resultArrowCountValue" type="number" min="1" max="1000" value="1000"></div>
           <div class="field-count-note" id="resultArrowCountInfo">Load a field volume to choose arrows from its saved points.</div>
@@ -426,7 +454,7 @@ button,input,select{font:inherit}.app{height:100%;min-height:0;padding:7px;displ
           <div class="result-control-row"><input id="resultArrowSize" type="range" min="0.25" max="4" step="0.05" value="1"><input class="input result-value" id="resultArrowSizeValue" type="number" min="0.25" max="4" step="0.05" value="1"></div>
           <label class="label">Arrow color</label>
           <div class="color-control"><input id="resultArrowColor" type="color" value="#45d8ff" aria-label="Choose field-arrow color"><input class="input result-value" id="resultArrowColorValue" type="text" value="#45D8FF" maxlength="7" spellcheck="false"></div>
-          <div class="hint">The imported dataset contains the permanent-magnet field only. Arrow count, size, and color change visualization, never the stored Radia result.</div>
+          <div class="hint">The B/H volumes come directly from the solved permanent-magnet Radia model. Arrow count, size, and color change visualization only.</div>
         </div>
         <div class="result-section">
           <div class="sub">Solved loads</div>
@@ -438,6 +466,7 @@ button,input,select{font:inherit}.app{height:100%;min-height:0;padding:7px;displ
       </aside>
       <section class="results-view" id="resultViewport"><div id="resultThree"></div><div class="result-badge" id="resultBadge">Read-only solved field</div><div class="result-help">Same navigation: left orbit · right pan · wheel zoom</div></section>
       <aside class="results-inspector">
+        <div id="resultFieldInspector">
         <div class="result-section">
           <div class="sub">Movable slice</div>
           <div class="grid2"><div><label class="label">Plane</label><select class="select" id="slicePlane"><option value="xy">XY</option><option value="xz">XZ</option><option value="yz">YZ</option></select></div><div><label class="label">Field component</label><select class="select" id="sliceComponent"><option value="mag">|B|</option><option value="x">Bx</option><option value="y">By</option><option value="z">Bz</option></select></div></div>
@@ -451,6 +480,19 @@ button,input,select{font:inherit}.app{height:100%;min-height:0;padding:7px;displ
           <label class="switch" style="margin:8px 0 10px"><input id="profileOverlayToggle" type="checkbox">Show 1D line on 2D slice</label>
           <canvas class="profile-canvas" id="profileCanvas" width="520" height="210"></canvas>
           <div class="canvas-caption"><span id="profileAxis">Position [mm]</span><span id="profileRange"></span></div>
+        </div>
+        </div>
+        <div id="resultIntegralInspector" hidden>
+          <div class="result-section">
+            <div class="sub">Field-integral scan</div>
+            <div class="grid2">
+              <div><label class="label">Scan</label><select class="select" id="integralScanSelect"></select></div>
+              <div><label class="label">Integral component</label><select class="select" id="integralComponent"><option value="z">∫Bz ds</option><option value="x">∫Bx ds</option><option value="y">∫By ds</option><option value="mag">|∫B ds|</option></select></div>
+            </div>
+            <div class="hint" id="integralMetadata" style="margin-top:9px">Load a v5.2 .mfield containing a field-integral scan.</div>
+            <canvas class="profile-canvas" id="integralCanvas" width="520" height="300" style="margin-top:10px"></canvas>
+            <div class="canvas-caption"><span id="integralAxis">Scan position [mm]</span><span id="integralRange"></span></div>
+          </div>
         </div>
       </aside>
     </div>
@@ -550,13 +592,35 @@ function syncProperties(){q('#magnetProperties').style.display=selected?.userDat
 function moment(o){const axis=new THREE.Vector3(0,0,1).applyQuaternion(o.getWorldQuaternion(new THREE.Quaternion()));if(o.userData.type==='magnet'){const d=o.userData,volume=d.shape==='cylinder'?Math.PI*d.radius*d.radius*d.height:d.dimensions.x*d.dimensions.y*d.dimensions.z;return axis.multiplyScalar(d.strength*volume*.002)}const d=o.userData;if(d.shape==='line')return new THREE.Vector3();const area=d.shape==='annular'?Math.PI*d.radius*d.radius:d.shape==='solenoid'?Math.PI*d.solenoidRadius*d.solenoidRadius:(2*d.length*d.endRadius+Math.PI*d.endRadius*d.endRadius);return axis.multiplyScalar(d.current*d.turns*area*.00008)}
 function sourceField(o,p){const pos=o.getWorldPosition(new THREE.Vector3());if(o.userData.type==='coil'&&o.userData.shape==='line'){const axis=new THREE.Vector3(1,0,0).applyQuaternion(o.getWorldQuaternion(new THREE.Quaternion())).normalize(),r=p.clone().sub(pos),radial=r.clone().addScaledVector(axis,-r.dot(axis)),rho2=Math.max(25,radial.lengthSq());return new THREE.Vector3().crossVectors(axis,radial).multiplyScalar(o.userData.current*o.userData.turns*.035/rho2)}const m=moment(o),r=p.clone().sub(pos),dist=Math.max(6,r.length()),u=r.clone().divideScalar(dist);return u.multiplyScalar(3*m.dot(u)).sub(m).divideScalar(dist*dist*dist)}
 function totalField(p,exclude=null){const out=new THREE.Vector3();objects.forEach(o=>{if(o.visible&&o!==exclude)out.add(sourceField(o,p))});return out}
+function conceptualFieldForDisplay(v){return v.clone()}
+function fieldQuantitySymbol(){return q('#fieldQuantity')?.value==='h'?'H':'B'}
 function samplePoint(i,j,n,plane,L){const step=2*L/(n-1),u=-L+i*step,v=-L+j*step;return plane==='xy'?new THREE.Vector3(u,v,0):plane==='xz'?new THREE.Vector3(u,0,v):new THREE.Vector3(0,u,v)}
 function getVolumeBounds(){const bounds=new THREE.Box3(),visible=objects.filter(o=>o.visible);if(!visible.length){bounds.set(new THREE.Vector3(-80,-80,-50),new THREE.Vector3(80,80,90));return bounds}visible.forEach(o=>bounds.union(new THREE.Box3().setFromObject(o)));const size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3()),maxSide=Math.max(size.x,size.y,size.z,70),margin=Math.max(25,maxSide*.35),half=new THREE.Vector3(Math.max(size.x/2+margin,maxSide*.45),Math.max(size.y/2+margin,maxSide*.45),Math.max(size.z/2+margin,maxSide*.38));return bounds.set(center.clone().sub(half),center.clone().add(half))}
 function volumePoints(n,bounds){const points=[],min=bounds.min,max=bounds.max;for(let i=0;i<n;i++)for(let j=0;j<n;j++)for(let k=0;k<n;k++)points.push(new THREE.Vector3(THREE.MathUtils.lerp(min.x,max.x,i/(n-1)),THREE.MathUtils.lerp(min.y,max.y,j/(n-1)),THREE.MathUtils.lerp(min.z,max.z,k/(n-1))));return points}
 function addFieldArrow(p,v,c,max,offset=0,lengthScale=1){const value=v.length();if(value<max*.005)return;const ratio=Math.min(1,value/max),a=new THREE.ArrowHelper(v.clone().normalize(),p.clone().add(new THREE.Vector3(offset*.8,offset*.45,offset*.3)),(3+11*Math.sqrt(ratio))*lengthScale,c,2.4*lengthScale,1.5*lengthScale);a.line.material.transparent=a.cone.material.transparent=true;a.line.material.opacity=a.cone.material.opacity=.12+.82*Math.sqrt(ratio);fieldGroup.add(a)}
-function rebuildFields(){fieldGroup.clear();volumeGuide.visible=false;if(!q('#fieldToggle').checked){fieldStatus='Fields hidden';return}const density=+q('#fieldDensity').value,plane=q('#fieldPlane').value,L=120;let pts=[],lengthScale=1;if(plane==='volume'){const n=density===11?5:density===15?7:9,bounds=getVolumeBounds();volumeBounds.copy(bounds);volumeGuide.visible=true;pts=volumePoints(n,bounds);lengthScale=.72;fieldStatus='3D field volume · '+pts.length+' sample points'}else{for(let i=0;i<density;i++)for(let j=0;j<density;j++)pts.push(samplePoint(i,j,density,plane,L));fieldStatus=plane.toUpperCase()+' field plane · '+pts.length+' sample points'}if(q('#fieldMode').value==='resultant'){const vals=pts.map(p=>totalField(p)),max=Math.max(...vals.map(v=>v.length()),1e-9);pts.forEach((p,i)=>addFieldArrow(p,vals[i],C.accent,max,0,lengthScale))}else{objects.filter(o=>o.visible).forEach((o,k)=>{const vals=pts.map(p=>sourceField(o,p)),max=Math.max(...vals.map(v=>v.length()),1e-9),c=o.userData.type==='magnet'?C.mag:C.coil;pts.forEach((p,i)=>addFieldArrow(p,vals[i],c,max,(k%3)-1,lengthScale))})}}
-function forceTorque(o){const p=o.getWorldPosition(new THREE.Vector3());if(o.userData.type==='coil'&&o.userData.shape==='line'){const axis=new THREE.Vector3(1,0,0).applyQuaternion(o.getWorldQuaternion(new THREE.Quaternion())).normalize(),length=Math.max(1,o.userData.simulationLength||200),segments=31,ds=length/segments,force=new THREE.Vector3(),torque=new THREE.Vector3(),currentFactor=o.userData.current*o.userData.turns*ds*1e-3;for(let i=0;i<segments;i++){const s=-length/2+(i+.5)*ds,point=p.clone().addScaledVector(axis,s),dF=new THREE.Vector3().crossVectors(axis,totalField(point,o)).multiplyScalar(currentFactor);force.add(dF);torque.add(new THREE.Vector3().crossVectors(point.clone().sub(p),dF))}return{force,torque}}const m=moment(o),external=totalField(p,o),torque=m.clone().cross(external),h=1.5,force=new THREE.Vector3();for(let axis=0;axis<3;axis++){const plus=p.clone(),minus=p.clone();plus.setComponent(axis,plus.getComponent(axis)+h);minus.setComponent(axis,minus.getComponent(axis)-h);force.setComponent(axis,(m.dot(totalField(plus,o))-m.dot(totalField(minus,o)))/(2*h))}return{force,torque}}
-function loadComponentVector(vector,mode){if(mode==='x')return new THREE.Vector3(vector.x,0,0);if(mode==='y')return new THREE.Vector3(0,vector.y,0);if(mode==='z')return new THREE.Vector3(0,0,vector.z);return vector.clone()}
+function rebuildFields(){
+  fieldGroup.clear();volumeGuide.visible=false;
+  const quantity=fieldQuantitySymbol();
+  q('#fieldLegendLabel').textContent='Resultant '+quantity;
+  if(!q('#fieldToggle').checked){fieldStatus=quantity+' field hidden';return}
+  const density=+q('#fieldDensity').value,plane=q('#fieldPlane').value,L=120;let pts=[],lengthScale=1;
+  if(plane==='volume'){
+    const n=density===11?5:density===15?7:9,bounds=getVolumeBounds();volumeBounds.copy(bounds);volumeGuide.visible=true;pts=volumePoints(n,bounds);lengthScale=.72;
+    fieldStatus='Conceptual '+quantity+' · 3D volume · '+pts.length+' sample points'
+  }else{
+    for(let i=0;i<density;i++)for(let j=0;j<density;j++)pts.push(samplePoint(i,j,density,plane,L));
+    fieldStatus='Conceptual '+quantity+' · '+plane.toUpperCase()+' plane · '+pts.length+' sample points'
+  }
+  if(q('#fieldMode').value==='resultant'){
+    const vals=pts.map(p=>conceptualFieldForDisplay(totalField(p))),max=Math.max(...vals.map(v=>v.length()),1e-9);
+    pts.forEach((p,i)=>addFieldArrow(p,vals[i],C.accent,max,0,lengthScale))
+  }else{
+    objects.filter(o=>o.visible).forEach((o,k)=>{
+      const vals=pts.map(p=>conceptualFieldForDisplay(sourceField(o,p))),max=Math.max(...vals.map(v=>v.length()),1e-9),c=o.userData.type==='magnet'?C.mag:C.coil;
+      pts.forEach((p,i)=>addFieldArrow(p,vals[i],c,max,(k%3)-1,lengthScale))
+    })
+  }
+}
 function createTorqueCurvedArrow(vector,center,radius,color){const len=vector.length();if(len<1e-9)return new THREE.Group();const axis=vector.clone().normalize();const ref=Math.abs(axis.z)<0.9?new THREE.Vector3(0,0,1):new THREE.Vector3(0,1,0);const u=new THREE.Vector3().crossVectors(ref,axis).normalize();const v=new THREE.Vector3().crossVectors(axis,u).normalize();const start=-Math.PI*.9,end=Math.PI*.45,steps=56,pts=[];for(let i=0;i<=steps;i++){const a=start+(end-start)*i/steps;pts.push(center.clone().add(u.clone().multiplyScalar(Math.cos(a)*radius)).add(v.clone().multiplyScalar(Math.sin(a)*radius)))}const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color,transparent:true,opacity:.95}));const tangent=u.clone().multiplyScalar(-Math.sin(end)).add(v.clone().multiplyScalar(Math.cos(end))).normalize();const headLength=Math.max(radius*.42,2.8),headRadius=Math.max(radius*.14,1.3);const head=new THREE.Mesh(new THREE.ConeGeometry(headRadius,headLength,18),new THREE.MeshBasicMaterial({color}));head.position.copy(pts[pts.length-1]).add(tangent.clone().multiplyScalar(headLength*.45));head.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),tangent);const ring=new THREE.Group();ring.add(line,head);return ring}
 function rebuildLoads(){loadGroup.clear();const showForce=q('#forcesToggle').checked,showTorque=q('#torqueToggle').checked;if(!showForce&&!showTorque){q('#status').textContent=fieldStatus;return}const forceMode=q('#forceComponent').value||'res',torqueMode=q('#torqueComponent').value||'res',moving=objects.filter(o=>o.visible&&!o.userData.locked),loads=moving.map(o=>{const ft=forceTorque(o);return{o,force:loadComponentVector(ft.force,forceMode),torque:loadComponentVector(ft.torque,torqueMode)}}),mf=Math.max(...loads.map(x=>x.force.length()),1e-9),mt=Math.max(...loads.map(x=>x.torque.length()),1e-9);loads.forEach(x=>{const p=x.o.getWorldPosition(new THREE.Vector3());if(showForce&&x.force.length()>mf*.004)loadGroup.add(new THREE.ArrowHelper(x.force.clone().normalize(),p,13+35*Math.sqrt(x.force.length()/mf),C.force,6,3.5));if(showTorque&&x.torque.length()>mt*.004){const radius=7+10*Math.sqrt(x.torque.length()/mt);loadGroup.add(createTorqueCurvedArrow(x.torque,p,radius,C.torque))}});const parts=[];if(showForce)parts.push('green = F'+forceMode);if(showTorque)parts.push('purple curved = M'+torqueMode);q('#status').textContent=moving.length?moving.length+' unlocked bod'+(moving.length===1?'y':'ies')+' receiving loads · '+parts.join(' · '):'All bodies locked'}
 function schedule(){cancelAnimationFrame(scheduled);scheduled=requestAnimationFrame(()=>{applyVisualMode();rebuildFields();rebuildLoads()})}
@@ -651,7 +715,7 @@ function cadObjectRecord(o){
   return record;
 }
 function cadProjectRecord(){
-  return {format:CAD_PROJECT_FORMAT,version:CAD_PROJECT_VERSION,app_version:'5.0',saved_at:new Date().toISOString(),objects:objects.map(cadObjectRecord),display:{grid:q('#gridToggle').checked,snap:q('#snapToggle').checked,current_arrows:q('#currentArrowsToggle').checked,visual_mode:q('#visualMode').value,quick_field:q('#fieldToggle').checked,field_mode:q('#fieldMode').value,field_plane:q('#fieldPlane').value,field_density:q('#fieldDensity').value,quick_force:q('#forcesToggle').checked,quick_force_component:q('#forceComponent').value,quick_torque:q('#torqueToggle').checked,quick_torque_component:q('#torqueComponent').value},camera:{position:camera.position.toArray(),target:orbit.target.toArray(),up:camera.up.toArray()}};
+  return {format:CAD_PROJECT_FORMAT,version:CAD_PROJECT_VERSION,app_version:'5.2-magnetics',saved_at:new Date().toISOString(),objects:objects.map(cadObjectRecord),display:{grid:q('#gridToggle').checked,snap:q('#snapToggle').checked,current_arrows:q('#currentArrowsToggle').checked,visual_mode:q('#visualMode').value,quick_field:q('#fieldToggle').checked,field_mode:q('#fieldMode').value,field_plane:q('#fieldPlane').value,field_density:q('#fieldDensity').value,quick_force:q('#forcesToggle').checked,quick_force_component:q('#forceComponent').value,quick_torque:q('#torqueToggle').checked,quick_torque_component:q('#torqueComponent').value},camera:{position:camera.position.toArray(),target:orbit.target.toArray(),up:camera.up.toArray()}};
 }
 function downloadCadProject(){
   const project=cadProjectRecord(),name=safeFileName(objects.length===1?objects[0].name:'magnetic_scene')+'.magcad',blob=new Blob([JSON.stringify(project,null,2)],{type:'application/json;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
@@ -757,23 +821,51 @@ function exportConfigFromUI(){
     centre_mm:[+q('#boxCx').value||0,+q('#boxCy').value||0,+q('#boxCz').value||0],
     size_mm:[Math.max(1,+q('#boxSx').value||1),Math.max(1,+q('#boxSy').value||1),Math.max(1,+q('#boxSz').value||1)],
     shape:[Math.max(2,Math.round(+q('#gridNx').value||31)),Math.max(2,Math.round(+q('#gridNy').value||31)),Math.max(2,Math.round(+q('#gridNz').value||31))],
-    output_path:(q('#resultOutputPath').value||'magnetic_scene.mfield').trim()||'magnetic_scene.mfield'
+    output_path:(q('#resultOutputPath').value||'magnetic_scene.mfield').trim()||'magnetic_scene.mfield',
+    field_integral:{
+      enabled:!!q('#integralEnabled').checked,
+      mode:q('#integralMode').value==='fin'?'fin':'inf',
+      finite_length_mm:Math.max(.001,+q('#integralLength').value||300),
+      centre_mm:[+q('#integralCx').value||0,+q('#integralCy').value||0,+q('#integralCz').value||0],
+      integration_direction:[+q('#integralDx').value||0,+q('#integralDy').value||0,+q('#integralDz').value||0],
+      scan_direction:[+q('#scanDx').value||0,+q('#scanDy').value||0,+q('#scanDz').value||0],
+      scan_start_mm:+q('#scanStart').value||0,
+      scan_end_mm:+q('#scanEnd').value||0,
+      scan_count:Math.max(2,Math.min(5001,Math.round(+q('#scanCount').value||201)))
+    }
   };
 }
-function updateExportEstimate(){const c=exportConfigFromUI(),points=c.shape[0]*c.shape[1]*c.shape[2],mb=(points*3*4+c.shape.reduce((a,b)=>a+b,0)*4)/1048576,coilPts=objects.filter(o=>o.visible&&o.userData.type==='coil').reduce((s,o)=>{const i=o.userData.integration||{path:160,u:5,v:5},path=o.userData.shape==='solenoid'?Math.max(i.path,(o.userData.turns||1)*12+1):i.path;return s+path*i.u*i.v},0);q('#exportEstimate').textContent=points.toLocaleString()+' field points · about '+mb.toFixed(1)+' MB uncompressed · '+coilPts.toLocaleString()+' coil integration points · output: '+c.output_path;}
+function updateExportEstimate(){
+  const c=exportConfigFromUI(),points=c.shape[0]*c.shape[1]*c.shape[2],
+        integralPts=c.field_integral.enabled?c.field_integral.scan_count:0,
+        mb=((points*6+integralPts*4+c.shape.reduce((a,b)=>a+b,0))*4)/1048576,
+        coilPts=objects.filter(o=>o.visible&&o.userData.type==='coil').reduce((s,o)=>{
+          const i=o.userData.integration||{path:160,u:5,v:5},path=o.userData.shape==='solenoid'?Math.max(i.path,(o.userData.turns||1)*12+1):i.path;
+          return s+path*i.u*i.v
+        },0);
+  q('#exportEstimate').textContent=points.toLocaleString()+' B/H field points · about '+mb.toFixed(1)+' MB uncompressed · '+coilPts.toLocaleString()+' coil integration points'+(integralPts?' · '+integralPts.toLocaleString()+' FldInt scan points':'')+' · output: '+c.output_path;
+}
 function fitExportBox(){const visible=objects.filter(o=>o.visible),b=new THREE.Box3();visible.forEach(o=>b.union(new THREE.Box3().setFromObject(o)));if(b.isEmpty())b.set(new THREE.Vector3(-50,-50,-50),new THREE.Vector3(50,50,50));const center=b.getCenter(new THREE.Vector3()),size=b.getSize(new THREE.Vector3()),margin=Math.max(10,Math.max(size.x,size.y,size.z)*.22);q('#boxCx').value=center.x.toFixed(2);q('#boxCy').value=center.y.toFixed(2);q('#boxCz').value=center.z.toFixed(2);q('#boxSx').value=Math.max(20,size.x+2*margin).toFixed(2);q('#boxSy').value=Math.max(20,size.y+2*margin).toFixed(2);q('#boxSz').value=Math.max(20,size.z+2*margin).toFixed(2);updateExportEstimate();}
 function renderSourceSettings(){const box=q('#sourceSettings');box.innerHTML='';objects.filter(o=>o.visible).forEach(o=>{const row=document.createElement('div');if(o.userData.type==='magnet'){if(o.userData.shape==='cylinder'){o.userData.cylinderSegments=Math.max(12,Math.round(o.userData.cylinderSegments||48));row.className='source-setting';row.innerHTML=`<div><strong>${o.name}</strong><div class="meta">Cylindrical Radia source</div></div><div><label class="label">Azimuth sectors</label><input class="input cs" type="number" min="12" max="360" value="${o.userData.cylinderSegments}"></div><div class="meta" style="grid-column:3/5;align-self:end">Radius ${o.userData.radius.toFixed(2)} mm · height ${o.userData.height.toFixed(2)} mm</div>`;row.querySelector('.cs').onchange=e=>{o.userData.cylinderSegments=Math.max(12,Math.min(360,Math.round(+e.target.value||48)));e.target.value=o.userData.cylinderSegments}}else{const s=o.userData.segmentation||{x:3,y:3,z:3};o.userData.segmentation=s;row.className='source-setting';row.innerHTML=`<div><strong>${o.name}</strong><div class="meta">Cuboid subdivision X/Y/Z</div></div><div><label class="label">X</label><input class="input sx" type="number" min="1" max="50" value="${s.x}"></div><div><label class="label">Y</label><input class="input sy" type="number" min="1" max="50" value="${s.y}"></div><div><label class="label">Z</label><input class="input sz" type="number" min="1" max="50" value="${s.z}"></div>`;['x','y','z'].forEach(a=>row.querySelector('.s'+a).onchange=e=>{s[a]=Math.max(1,Math.round(+e.target.value||1));e.target.value=s[a]})}}else{const i=o.userData.integration||{path:160,u:5,v:5};o.userData.integration=i;const isLine=o.userData.shape==='line',isSolenoid=o.userData.shape==='solenoid';row.className='source-setting coil-setting'+(isLine?' line-setting':'');row.innerHTML=`<div><strong>${o.name}</strong><div class="meta">${isLine?'Finite segment used for the Lorentz integral':isSolenoid?'Explicit helical J × B integration':'Lorentz integral repartition'}</div></div>${isLine?`<div><label class="label">Simulation length mm</label><input class="input il" type="number" min="1" max="100000" step="1" value="${o.userData.simulationLength||200}"></div>`:''}<div><label class="label">${isSolenoid?'Along helix':'Along path'}</label><input class="input ip" type="number" min="12" max="10000" value="${i.path}"></div><div><label class="label">Across width</label><input class="input iu" type="number" min="1" max="30" value="${i.u}"></div><div><label class="label">Across height</label><input class="input iv" type="number" min="1" max="30" value="${i.v}"></div>${isSolenoid?`<div class="meta" style="grid-column:1/-1">Effective helix sampling is automatically at least 12 points per turn (${Math.max(i.path,(o.userData.turns||1)*12+1)} path points for the current ${o.userData.turns} turns).</div>`:''}`;if(isLine)row.querySelector('.il').onchange=e=>{o.userData.simulationLength=Math.max(1,+e.target.value||200);e.target.value=o.userData.simulationLength;updateExportEstimate()};[['ip','path',12],['iu','u',1],['iv','v',1]].forEach(([cls,key,min])=>row.querySelector('.'+cls).onchange=e=>{i[key]=Math.max(min,Math.round(+e.target.value||min));e.target.value=i[key];updateExportEstimate()})}box.appendChild(row)});updateExportEstimate();}
-function openExportDialog(){renderSourceSettings();if(!q('#boxSx').value)fitExportBox();q('#exportModal').hidden=false;}
+function syncIntegralExportUI(){
+  const enabled=q('#integralEnabled').checked,finite=q('#integralMode').value==='fin';
+  q('#integralConfig').style.opacity=enabled?'1':'.55';
+  q('#integralConfig').querySelectorAll('input,select').forEach(el=>{if(el.id!=='integralEnabled')el.disabled=!enabled});
+  q('#integralLength').disabled=!enabled||!finite;
+  updateExportEstimate()
+}
+function openExportDialog(){renderSourceSettings();if(!q('#boxSx').value)fitExportBox();syncIntegralExportUI();q('#exportModal').hidden=false;}
 function closeExportDialog(){q('#exportModal').hidden=true;}
 function generateRadiaPython(){
   const payload=utf8Base64(JSON.stringify(sceneForRadia()));
   const cfg=utf8Base64(JSON.stringify(exportConfigFromUI()));
   return `#!/usr/bin/env python3
-"""Radia field-volume solver generated by Magnetic CAD Playground v5.0.
+"""Radia field-volume solver generated by Magnetic CAD Playground v5.2 · magnetics.
 
 The saved .mfield file is opened by the Results viewer in MagneticCAD.html.
-The field volume contains permanent-magnet field only. Coil loads are calculated
-with an explicit J x B quadrature over the conductor/winding volume.
+It stores permanent-magnet B and H field volumes and, when requested, a straight-line
+B-field-integral scan from Radia FldInt. Coil loads are calculated with an explicit
+J x B quadrature over the conductor/winding volume.
 """
 from __future__ import annotations
 
@@ -886,14 +978,54 @@ def path_points(item: Dict, count: int) -> np.ndarray:
     return np.vstack(pieces)
 
 
-def radia_field(model, points: np.ndarray, chunk: int = 20000) -> np.ndarray:
+def radia_field(model, points: np.ndarray, quantity: str = "b", chunk: int = 20000) -> np.ndarray:
+    quantity = "h" if str(quantity).lower().startswith("h") else "b"
     if model is None:
         return np.zeros((len(points), 3), dtype=float)
     output = np.empty((len(points), 3), dtype=float)
     for start in range(0, len(points), chunk):
         stop = min(start+chunk, len(points))
-        output[start:stop] = np.asarray(rad.Fld(model, "b", points[start:stop].tolist()), dtype=float)
+        chunk_points = points[start:stop].tolist()
+        try:
+            raw = np.asarray(rad.Fld(model, quantity, chunk_points), dtype=float)
+            if raw.shape == (stop-start, 3):
+                output[start:stop] = raw
+                continue
+        except Exception:
+            pass
+        # Compatibility fallback for Radia builds that require explicit Cartesian IDs.
+        output[start:stop] = np.column_stack([
+            np.asarray(rad.Fld(model, quantity+axis, chunk_points), dtype=float).reshape(-1)
+            for axis in ("x", "y", "z")
+        ])
     return output
+
+
+def unit_vector(values: Sequence[float], name: str) -> np.ndarray:
+    vector = np.asarray(values, dtype=float)
+    norm = float(np.linalg.norm(vector))
+    if norm <= 1e-15:
+        raise ValueError(f"{name} must be a non-zero vector")
+    return vector/norm
+
+
+def field_integral_vector(model, mode: str, p1: np.ndarray, p2: np.ndarray) -> np.ndarray:
+    if model is None:
+        return np.zeros(3, dtype=float)
+    # Official Radia accepts an empty component string for all Cartesian values.
+    # Some older/forked Python builds are more reliable when the components are
+    # requested separately, so keep a compatibility fallback.
+    try:
+        raw = np.asarray(rad.FldInt(model, mode, "", p1.tolist(), p2.tolist()), dtype=float).reshape(-1)
+        if raw.size == 3:
+            return raw
+    except Exception:
+        pass
+    return np.asarray([
+        rad.FldInt(model, mode, "ibx", p1.tolist(), p2.tolist()),
+        rad.FldInt(model, mode, "iby", p1.tolist(), p2.tolist()),
+        rad.FldInt(model, mode, "ibz", p1.tolist(), p2.tolist()),
+    ], dtype=float)
 
 
 def coil_force_torque(item: Dict, magnet_model) -> tuple[np.ndarray, np.ndarray, int]:
@@ -941,7 +1073,7 @@ def coil_force_torque(item: Dict, magnet_model) -> tuple[np.ndarray, np.ndarray,
     points = np.asarray(points, dtype=float)
     currents = np.asarray(currents, dtype=float)
     volumes = np.asarray(volumes, dtype=float)[:, None]
-    magnetic_field = radia_field(magnet_model, points)
+    magnetic_field = radia_field(magnet_model, points, "b")
     # J[A/mm^2] x B[T] x dV[mm^3] x 1e-3 = N
     differential_force = np.cross(currents, magnetic_field)*volumes*1e-3
     force = differential_force.sum(axis=0)
@@ -959,23 +1091,83 @@ def solve_field(magnet_model):
     z = np.linspace(lower[2], upper[2], nz, dtype=np.float64)
     xx, yy, zz = np.meshgrid(x, y, z, indexing="ij")
     points = np.column_stack((xx.ravel(), yy.ravel(), zz.ravel()))
-    print(f"Sampling {len(points):,} points on a {nx} x {ny} x {nz} grid ...")
+    print(f"Sampling B and H at {len(points):,} points on a {nx} x {ny} x {nz} grid ...")
     started = time.perf_counter()
-    b = radia_field(magnet_model, points).reshape(nx, ny, nz, 3)
-    print(f"Field sampling finished in {time.perf_counter()-started:.2f} s")
-    return x, y, z, b
+    b = radia_field(magnet_model, points, "b").reshape(nx, ny, nz, 3)
+    h = radia_field(magnet_model, points, "h").reshape(nx, ny, nz, 3)
+    print(f"B/H field sampling finished in {time.perf_counter()-started:.2f} s")
+    return x, y, z, b, h
 
 
-def write_mfield(path: Path, x, y, z, b, loads, elapsed: float) -> None:
+def solve_field_integral(magnet_model):
+    cfg = dict(EXPORT.get("field_integral") or {})
+    if not cfg.get("enabled", False):
+        return None
+    mode = "fin" if cfg.get("mode") == "fin" else "inf"
+    centre = np.asarray(cfg.get("centre_mm", [0.0, 0.0, 0.0]), dtype=float)
+    integration_direction = unit_vector(cfg.get("integration_direction", [1.0, 0.0, 0.0]), "integration direction")
+    scan_direction = unit_vector(cfg.get("scan_direction", [0.0, 1.0, 0.0]), "scan direction")
+    start = float(cfg.get("scan_start_mm", -100.0))
+    end = float(cfg.get("scan_end_mm", 100.0))
+    count = max(2, int(cfg.get("scan_count", 201)))
+    finite_length = max(1e-6, float(cfg.get("finite_length_mm", 300.0)))
+    scan_s = np.linspace(start, end, count, dtype=np.float64)
+    values = np.empty((count, 3), dtype=np.float64)
+    print(f"Sampling Radia FldInt on {count:,} scan positions ...")
+    started = time.perf_counter()
+    for index, s in enumerate(scan_s):
+        scan_point = centre+s*scan_direction
+        if mode == "fin":
+            half = 0.5*finite_length
+            p1 = scan_point-half*integration_direction
+            p2 = scan_point+half*integration_direction
+        else:
+            # For an infinite integral P1/P2 define the straight-line direction.
+            p1 = scan_point-integration_direction
+            p2 = scan_point+integration_direction
+        values[index] = field_integral_vector(magnet_model, mode, p1, p2)
+    print(f"Field-integral scan finished in {time.perf_counter()-started:.2f} s")
+    return {
+        "name": "B field integral scan",
+        "mode": mode,
+        "centre_mm": centre.tolist(),
+        "integration_direction": integration_direction.tolist(),
+        "scan_direction": scan_direction.tolist(),
+        "scan_start_mm": start,
+        "scan_end_mm": end,
+        "count": count,
+        "finite_length_mm": finite_length if mode == "fin" else None,
+        "components": ["IBx", "IBy", "IBz"],
+        "scan_s": scan_s,
+        "values": values,
+    }
+
+
+def write_mfield(path: Path, x, y, z, b, h, integral_scan, loads, elapsed: float) -> None:
     path = path.expanduser()
     path.parent.mkdir(parents=True, exist_ok=True)
+    integral_meta = []
+    array_order = ["x", "y", "z", "B(nx,ny,nz,3)", "H(nx,ny,nz,3)"]
+    if integral_scan is not None:
+        integral_meta.append({key: value for key, value in integral_scan.items() if key not in ("scan_s", "values")})
+        array_order.extend(["integral_scan_s(n)", "IB(n,3)"])
     header = {
-        "format": "MagneticCADField", "version": 1,
-        "units": {"position": "mm", "field": "T", "force": "N", "torque": "N.mm"},
+        "format": "MagneticCADField", "version": 2,
+        "units": {
+            "position": "mm",
+            "field": "T",
+            "B": "T",
+            "H": "T (mu0*H)",
+            "B_integral": "T.mm",
+            "force": "N",
+            "torque": "N.mm"
+        },
         "shape": [int(len(x)), int(len(y)), int(len(z))],
         "scene": SCENE, "loads": loads,
+        "field_quantities": ["B", "H"],
+        "field_integrals": integral_meta,
         "solver": {"engine": "ESRF Radia", "field_sources": "permanent magnets only", "elapsed_s": elapsed},
-        "array_order": ["x", "y", "z", "B(nx,ny,nz,3)"],
+        "array_order": array_order,
     }
     encoded = json.dumps(header, separators=(",", ":")).encode("utf-8")
     padding = (-len(encoded)) % 4
@@ -988,6 +1180,10 @@ def write_mfield(path: Path, x, y, z, b, loads, elapsed: float) -> None:
         stream.write(np.asarray(y, dtype="<f4").tobytes(order="C"))
         stream.write(np.asarray(z, dtype="<f4").tobytes(order="C"))
         stream.write(np.asarray(b, dtype="<f4").tobytes(order="C"))
+        stream.write(np.asarray(h, dtype="<f4").tobytes(order="C"))
+        if integral_scan is not None:
+            stream.write(np.asarray(integral_scan["scan_s"], dtype="<f4").tobytes(order="C"))
+            stream.write(np.asarray(integral_scan["values"], dtype="<f4").tobytes(order="C"))
     print(f"Saved result: {path.resolve()} ({path.stat().st_size/1048576:.2f} MB)")
 
 
@@ -1003,7 +1199,7 @@ def main() -> None:
     started = time.perf_counter()
     magnet_model, magnet_handles = build_magnet_model(SCENE)
     print(f"Built {len(magnet_handles)} permanent-magnet source(s).")
-    print("Coils are excluded from the exported B field and used as Lorentz-integration targets.")
+    print("Coils are excluded from the exported B/H fields and used as Lorentz-integration targets.")
     loads = []
     if not args.skip_forces:
         for item in SCENE:
@@ -1012,44 +1208,348 @@ def main() -> None:
             force, torque, samples = coil_force_torque(item, magnet_model)
             loads.append({"name": item["name"], "position_mm": item["position_mm"], "force_N": force.tolist(), "torque_Nmm": torque.tolist(), "samples": samples, "locked": bool(item.get("locked", False))})
             print(f"{item['name']}: F={force} N, T={torque} N.mm ({samples:,} integration points)")
-    x, y, z, b = solve_field(magnet_model)
-    write_mfield(args.output, x, y, z, b, loads, time.perf_counter()-started)
+    x, y, z, b, h = solve_field(magnet_model)
+    integral_scan = solve_field_integral(magnet_model)
+    write_mfield(args.output, x, y, z, b, h, integral_scan, loads, time.perf_counter()-started)
 
 
 if __name__ == "__main__":
     main()
 `;
 }
-function exportRadiaScript(){const scene=sceneForRadia();if(!scene.some(item=>item.type==='magnet')){q('#exportMessage').textContent='Add at least one visible magnet before solving.';return}const filename=safeFileName((scene.length===1?scene[0].name:'magnetic_scene'))+'_radia_solve.py',output=exportConfigFromUI().output_path;downloadText(filename,generateRadiaPython());q('#exportMessage').textContent='Downloaded '+filename+' · default result: '+output;}
+function exportRadiaScript(){
+  const scene=sceneForRadia();
+  if(!scene.some(item=>item.type==='magnet')){q('#exportMessage').textContent='Add at least one visible magnet before solving.';return}
+  const cfg=exportConfigFromUI(),fi=cfg.field_integral;
+  if(fi.enabled){
+    const norm=v=>Math.hypot(...v);
+    if(norm(fi.integration_direction)<1e-12){q('#exportMessage').textContent='Field integral: choose a non-zero integration direction.';return}
+    if(norm(fi.scan_direction)<1e-12){q('#exportMessage').textContent='Field integral: choose a non-zero scan direction.';return}
+  }
+  const filename=safeFileName((scene.length===1?scene[0].name:'magnetic_scene'))+'_radia_solve.py',output=cfg.output_path;
+  downloadText(filename,generateRadiaPython());q('#exportMessage').textContent='Downloaded '+filename+' · default result: '+output
+}
 
 
 // ---------- Read-only Radia results viewer ----------
-let resultData=null,resultScene=null,resultCamera=null,resultRenderer=null,resultOrbit=null,resultGeometry=null,resultVectorsGroup=null,resultLoadsGroup=null,resultSliceMesh=null,resultResizeObserver=null;
-function initResults3D(){if(resultRenderer)return;const resultHost=q('#resultThree'),resultViewport=q('#resultViewport');resultScene=new THREE.Scene();resultScene.background=C.panel;resultGeometry=new THREE.Group();resultVectorsGroup=new THREE.Group();resultLoadsGroup=new THREE.Group();resultScene.add(resultGeometry,resultVectorsGroup,resultLoadsGroup,new THREE.HemisphereLight(0xffffff,0x30343b,2.5));const dl=new THREE.DirectionalLight(0xffffff,2.5);dl.position.set(120,-100,180);resultScene.add(dl);resultCamera=new THREE.PerspectiveCamera(42,1,.1,5000);resultCamera.up.set(0,0,1);resultCamera.position.set(160,-180,130);resultRenderer=new THREE.WebGLRenderer({antialias:true});resultRenderer.setPixelRatio(Math.min(devicePixelRatio,2));resultRenderer.domElement.className='webgl-result';resultHost.appendChild(resultRenderer.domElement);resultOrbit=new OrbitControls(resultCamera,resultRenderer.domElement);resultOrbit.enableDamping=true;resultSliceMesh=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({color:C.accent,transparent:true,opacity:.15,side:THREE.DoubleSide,depthWrite:false}));resultScene.add(resultSliceMesh);resultResizeObserver=new ResizeObserver(()=>{const w=resultViewport.clientWidth,h=resultViewport.clientHeight;resultRenderer.setSize(w,h,false);resultCamera.aspect=w/h;resultCamera.updateProjectionMatrix()});resultResizeObserver.observe(resultViewport);(function renderResult(){resultOrbit.update();resultRenderer.render(resultScene,resultCamera);requestAnimationFrame(renderResult)})()}
+let resultData=null,resultScene=null,resultCamera=null,resultRenderer=null,resultOrbit=null,resultGeometry=null,resultVectorsGroup=null,resultIntegralGroup=null,resultLoadsGroup=null,resultSliceMesh=null,resultResizeObserver=null;
+function initResults3D(){
+  if(resultRenderer)return;
+  const resultHost=q('#resultThree'),resultViewport=q('#resultViewport');
+  resultScene=new THREE.Scene();resultScene.background=C.panel;
+  resultGeometry=new THREE.Group();resultVectorsGroup=new THREE.Group();resultIntegralGroup=new THREE.Group();resultLoadsGroup=new THREE.Group();
+  resultScene.add(resultGeometry,resultVectorsGroup,resultIntegralGroup,resultLoadsGroup,new THREE.HemisphereLight(0xffffff,0x30343b,2.5));
+  const dl=new THREE.DirectionalLight(0xffffff,2.5);dl.position.set(120,-100,180);resultScene.add(dl);
+  resultCamera=new THREE.PerspectiveCamera(42,1,.1,5000);resultCamera.up.set(0,0,1);resultCamera.position.set(160,-180,130);
+  resultRenderer=new THREE.WebGLRenderer({antialias:true});resultRenderer.setPixelRatio(Math.min(devicePixelRatio,2));resultRenderer.domElement.className='webgl-result';resultHost.appendChild(resultRenderer.domElement);
+  resultOrbit=new OrbitControls(resultCamera,resultRenderer.domElement);resultOrbit.enableDamping=true;
+  resultSliceMesh=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({color:C.accent,transparent:true,opacity:.15,side:THREE.DoubleSide,depthWrite:false}));
+  resultScene.add(resultSliceMesh);
+  resultResizeObserver=new ResizeObserver(()=>{const w=resultViewport.clientWidth,h=resultViewport.clientHeight;resultRenderer.setSize(w,h,false);resultCamera.aspect=w/h;resultCamera.updateProjectionMatrix()});
+  resultResizeObserver.observe(resultViewport);
+  (function renderResult(){resultOrbit.update();resultRenderer.render(resultScene,resultCamera);requestAnimationFrame(renderResult)})()
+}
 function resultCoilPath(item){const d={shape:item.shape,radius:item.radius_mm,length:item.straight_length_mm,endRadius:item.end_radius_mm,displayLength:item.shape==='line'?(item.simulation_length_mm||200):(item.display_length_mm||280),solenoidRadius:item.solenoid_radius_mm||20,solenoidLength:item.solenoid_length_mm||50,turns:item.turns||1};return pathPoints(d,item.shape==='solenoid'?Math.max(192,(item.turns||1)*12+1):160)}
 function addResultGeometry(item){const group=new THREE.Group(),p=item.position_mm,qv=item.quaternion_xyzw;group.position.set(...p);group.quaternion.set(qv[0],qv[1],qv[2],qv[3]);if(item.type==='magnet'){let geometry;if(item.shape==='cylinder')geometry=cylinderGeometry(item.radius_mm,item.height_mm,item.cylinder_segments||48);else{const d=item.dimensions_mm;geometry=new THREE.BoxGeometry(d[0],d[1],d[2])}const mesh=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color:C.mag,transparent:true,opacity:.55,wireframe:true}));group.add(mesh)}else{const points=resultCoilPath(item),closed=coilPathClosed(item.shape),curve=item.shape==='line'?new THREE.LineCurve3(points[0],points[points.length-1]):new THREE.CatmullRomCurve3(points,closed,'centripetal'),resultDisplayWire=item.shape==='solenoid'?solenoidVisualWireRadius({solenoidLength:item.solenoid_length_mm,solenoidRadius:item.solenoid_radius_mm,turns:item.turns,wireRadius:item.wire_radius_mm}):Math.max(.5,item.wire_radius_mm),mesh=new THREE.Mesh(new THREE.TubeGeometry(curve,Math.max(160,points.length),resultDisplayWire,item.shape==='solenoid'?8:10,closed),new THREE.MeshStandardMaterial({color:C.coil,transparent:true,opacity:.45,wireframe:true}));group.add(mesh)}resultGeometry.add(group)}
-function parseMfield(buffer){const bytes=new Uint8Array(buffer),magic=new TextDecoder().decode(bytes.subarray(0,8));if(magic!=='MCFIELD1')throw new Error('Not a Magnetic CAD .mfield file');const view=new DataView(buffer),headerLength=view.getUint32(8,true),header=JSON.parse(new TextDecoder().decode(bytes.subarray(12,12+headerLength))),padding=(-headerLength)%4+4;let offset=12+headerLength+(padding%4);const [nx,ny,nz]=header.shape;const copyFloats=count=>{const out=new Float32Array(count);out.set(new Float32Array(buffer.slice(offset,offset+count*4)));offset+=count*4;return out};return{header,x:copyFloats(nx),y:copyFloats(ny),z:copyFloats(nz),b:copyFloats(nx*ny*nz*3),nx,ny,nz}}
-function bIndex(data,i,j,k,c){return ((((i*data.ny)+j)*data.nz+k)*3+c)}
-function bValue(data,i,j,k,component){const base=bIndex(data,i,j,k,0),bx=data.b[base],by=data.b[base+1],bz=data.b[base+2];return component==='x'?bx:component==='y'?by:component==='z'?bz:Math.hypot(bx,by,bz)}
-function vectorAt(data,i,j,k){const base=bIndex(data,i,j,k,0);return new THREE.Vector3(data.b[base],data.b[base+1],data.b[base+2])}
-function fitResultView(view='iso'){if(!resultData)return;const b=new THREE.Box3().setFromObject(resultGeometry),c=b.getCenter(new THREE.Vector3()),s=Math.max(100,b.getSize(new THREE.Vector3()).length()*1.35);resultOrbit.target.copy(c);resultCamera.position.copy(c).add(view==='top'?new THREE.Vector3(0,0,s):view==='front'?new THREE.Vector3(0,-s,0):new THREE.Vector3(.72*s,-.82*s,.62*s));resultCamera.lookAt(c);resultOrbit.update()}
+function parseMfield(buffer){
+  const bytes=new Uint8Array(buffer),magic=new TextDecoder().decode(bytes.subarray(0,8));
+  if(magic!=='MCFIELD1')throw new Error('Not a Magnetic CAD .mfield file');
+  const view=new DataView(buffer),headerLength=view.getUint32(8,true),
+        header=JSON.parse(new TextDecoder().decode(bytes.subarray(12,12+headerLength))),
+        padding=(-headerLength)%4+4;
+  let offset=12+headerLength+(padding%4);
+  const [nx,ny,nz]=header.shape;
+  const copyFloats=count=>{
+    if(offset+count*4>buffer.byteLength)throw new Error('Incomplete .mfield binary payload');
+    const out=new Float32Array(count);out.set(new Float32Array(buffer.slice(offset,offset+count*4)));offset+=count*4;return out
+  };
+  const data={header,x:copyFloats(nx),y:copyFloats(ny),z:copyFloats(nz),b:copyFloats(nx*ny*nz*3),h:null,integrals:[],nx,ny,nz};
+  const order=header.array_order||[];
+  if(order.some(name=>String(name).startsWith('H(')))data.h=copyFloats(nx*ny*nz*3);
+  (header.field_integrals||[]).forEach((meta,index)=>{
+    const count=Math.max(0,Math.round(meta.count||0));
+    if(!count)return;
+    data.integrals.push({meta:{...meta,index},s:copyFloats(count),values:copyFloats(count*3)})
+  });
+  return data
+}
+function fieldIndex(data,i,j,k,c){return ((((i*data.ny)+j)*data.nz+k)*3+c)}
+function resultQuantityMode(){return q('#resultQuantity')?.value||'b'}
+function currentResultFieldArray(){
+  if(!resultData)return null;
+  return resultQuantityMode()==='h'&&resultData.h?resultData.h:resultData.b
+}
+function currentResultFieldSymbol(){return resultQuantityMode()==='h'&&resultData?.h?'H':'B'}
+function currentResultFieldUnit(){return currentResultFieldSymbol()==='H'?(resultData?.header?.units?.H||'T (μ₀H)'):(resultData?.header?.units?.B||resultData?.header?.units?.field||'T')}
+function fieldValue(data,i,j,k,component){
+  const array=currentResultFieldArray(),base=fieldIndex(data,i,j,k,0),x=array[base],y=array[base+1],z=array[base+2];
+  return component==='x'?x:component==='y'?y:component==='z'?z:Math.hypot(x,y,z)
+}
+function resultVectorAt(data,i,j,k){
+  const array=currentResultFieldArray(),base=fieldIndex(data,i,j,k,0);
+  return new THREE.Vector3(array[base],array[base+1],array[base+2])
+}
+function vectorAt(data,i,j,k){
+  const array=data.b,base=fieldIndex(data,i,j,k,0);
+  return new THREE.Vector3(array[base],array[base+1],array[base+2])
+}
+function syncSliceComponentLabels(){
+  const symbol=currentResultFieldSymbol(),sel=q('#sliceComponent');
+  [...sel.options].forEach(opt=>{
+    opt.textContent=opt.value==='mag'?`|${symbol}|`:`${symbol}${opt.value}`
+  })
+}
+function fitResultView(view='iso'){
+  if(!resultData)return;
+  const b=new THREE.Box3().setFromObject(resultGeometry);
+  if(resultQuantityMode()==='integral'&&resultIntegralGroup?.children.length)b.union(new THREE.Box3().setFromObject(resultIntegralGroup));
+  const c=b.getCenter(new THREE.Vector3()),s=Math.max(100,b.getSize(new THREE.Vector3()).length()*1.35);
+  resultOrbit.target.copy(c);resultCamera.position.copy(c).add(view==='top'?new THREE.Vector3(0,0,s):view==='front'?new THREE.Vector3(0,-s,0):new THREE.Vector3(.72*s,-.82*s,.62*s));resultCamera.lookAt(c);resultOrbit.update()
+}
 function greatestCommonDivisor(a,b){while(b){const t=a%b;a=b;b=t}return a}
 function sampledFieldIndices(data,requested){const total=data.nx*data.ny*data.nz,target=Math.max(1,Math.min(total,Math.round(requested)));if(target===total)return Array.from({length:total},(_,i)=>i);let step=Math.max(1,Math.floor(total*.61803398875));while(step>1&&greatestCommonDivisor(step,total)!==1)step--;const start=Math.floor(total*.38196601125);return Array.from({length:target},(_,n)=>(start+n*step)%total)}
 function fieldIndexToIJK(data,linear){const yz=data.ny*data.nz,i=Math.floor(linear/yz),rem=linear-i*yz,j=Math.floor(rem/data.nz),k=rem-j*data.nz;return[i,j,k]}
-function rebuildResultVectors(){if(!resultData)return;resultVectorsGroup.clear();const total=resultData.nx*resultData.ny*resultData.nz;if(!q('#resultVectors').checked){q('#resultArrowCountInfo').textContent='Magnet field hidden · '+total.toLocaleString()+' saved points remain available.';return}const requested=Math.max(1,Math.min(total,Math.round(+q('#resultArrowCountValue').value||1))),size=Math.max(.25,Math.min(4,+q('#resultArrowSizeValue').value||1)),indices=sampledFieldIndices(resultData,requested),entries=[];let max=0;indices.forEach(linear=>{const [i,j,k]=fieldIndexToIJK(resultData,linear),v=vectorAt(resultData,i,j,k),m=v.length();if(m>0){max=Math.max(max,m);entries.push({p:new THREE.Vector3(resultData.x[i],resultData.y[j],resultData.z[k]),v,m})}});if(!entries.length){q('#resultArrowCountInfo').textContent='No non-zero vectors found in the selected samples.';return}const selectedColor=q('#resultArrowColor')?.value||'#45d8ff',shaftGeometry=new THREE.CylinderGeometry(.09,.09,1,6),headGeometry=new THREE.ConeGeometry(.25,1,8),material=new THREE.MeshBasicMaterial({color:new THREE.Color(selectedColor),transparent:true,opacity:.9,depthWrite:false}),shafts=new THREE.InstancedMesh(shaftGeometry,material,entries.length),heads=new THREE.InstancedMesh(headGeometry,material.clone(),entries.length),up=new THREE.Vector3(0,1,0),matrix=new THREE.Matrix4(),quaternion=new THREE.Quaternion(),scale=new THREE.Vector3(),position=new THREE.Vector3();entries.forEach((entry,index)=>{const ratio=Math.max(0,Math.min(1,entry.m/max)),direction=entry.v.clone().normalize(),length=(2.2+10.8*Math.sqrt(ratio))*size,headLength=Math.max(.55*size,Math.min(length*.32,2.8*size)),shaftLength=Math.max(.08,length-headLength),radius=(.055+.07*Math.sqrt(ratio))*size;quaternion.setFromUnitVectors(up,direction);position.copy(entry.p).addScaledVector(direction,shaftLength*.5);scale.set(radius,shaftLength,radius);matrix.compose(position,quaternion,scale);shafts.setMatrixAt(index,matrix);position.copy(entry.p).addScaledVector(direction,shaftLength+headLength*.5);scale.set(radius*3.2,headLength,radius*3.2);matrix.compose(position,quaternion,scale);heads.setMatrixAt(index,matrix)});shafts.instanceMatrix.needsUpdate=heads.instanceMatrix.needsUpdate=true;resultVectorsGroup.add(shafts,heads);q('#resultArrowCountInfo').textContent='Displaying '+entries.length.toLocaleString()+' arrows from '+total.toLocaleString()+' saved field points.'}
-function rebuildResultLoads(){if(!resultData)return;resultLoadsGroup.clear();const showForce=q('#resultShowForce').checked,showTorque=q('#resultShowTorque').checked,forceMode=q('#resultForceComponent').value||'res',torqueMode=q('#resultTorqueComponent').value||'res',records=resultData.header.loads||[];if(!showForce&&!showTorque){q('#resultBadge').textContent='Read-only solved field · loads hidden';return}const loads=records.map(record=>({record,force:loadComponentVector(new THREE.Vector3(...record.force_N),forceMode),torque:loadComponentVector(new THREE.Vector3(...record.torque_Nmm),torqueMode)})),mf=Math.max(...loads.map(x=>x.force.length()),1e-12),mt=Math.max(...loads.map(x=>x.torque.length()),1e-12);loads.forEach(({record,force,torque})=>{const p=new THREE.Vector3(...record.position_mm);if(showForce&&force.length()>mf*.0005){const ratio=Math.min(1,force.length()/mf),length=12+32*Math.sqrt(ratio);resultLoadsGroup.add(new THREE.ArrowHelper(force.clone().normalize(),p,length,C.force,5,3))}if(showTorque&&torque.length()>mt*.0005){const ratio=Math.min(1,torque.length()/mt),radius=7+13*Math.sqrt(ratio);resultLoadsGroup.add(createTorqueCurvedArrow(torque,p,radius,C.torque))}});const labels=[];if(showForce)labels.push(forceMode==='res'?'Fres':'F'+forceMode);if(showTorque)labels.push(torqueMode==='res'?'Mres':'M'+torqueMode);q('#resultBadge').textContent='Read-only solved field · '+labels.join(' + ')}
+function rebuildResultVectors(){
+  if(!resultData)return;
+  resultVectorsGroup.clear();
+  if(resultQuantityMode()==='integral'){
+    q('#resultArrowCountInfo').textContent='Field arrows are hidden in integral-scan mode.';
+    return
+  }
+  const total=resultData.nx*resultData.ny*resultData.nz,symbol=currentResultFieldSymbol();
+  if(!q('#resultVectors').checked){
+    q('#resultArrowCountInfo').textContent=symbol+' field hidden · '+total.toLocaleString()+' saved points remain available.';
+    return
+  }
+  const requested=Math.max(1,Math.min(total,Math.round(+q('#resultArrowCountValue').value||1))),
+        size=Math.max(.25,Math.min(4,+q('#resultArrowSizeValue').value||1)),
+        indices=sampledFieldIndices(resultData,requested),entries=[];
+  let max=0;
+  indices.forEach(linear=>{
+    const [i,j,k]=fieldIndexToIJK(resultData,linear),v=resultVectorAt(resultData,i,j,k),m=v.length();
+    if(m>0){max=Math.max(max,m);entries.push({p:new THREE.Vector3(resultData.x[i],resultData.y[j],resultData.z[k]),v,m})}
+  });
+  if(!entries.length){q('#resultArrowCountInfo').textContent='No non-zero '+symbol+' vectors found in the selected samples.';return}
+  const selectedColor=q('#resultArrowColor')?.value||'#45d8ff',
+        shaftGeometry=new THREE.CylinderGeometry(.09,.09,1,6),
+        headGeometry=new THREE.ConeGeometry(.25,1,8),
+        material=new THREE.MeshBasicMaterial({color:new THREE.Color(selectedColor),transparent:true,opacity:.9,depthWrite:false}),
+        shafts=new THREE.InstancedMesh(shaftGeometry,material,entries.length),
+        heads=new THREE.InstancedMesh(headGeometry,material.clone(),entries.length),
+        up=new THREE.Vector3(0,1,0),matrix=new THREE.Matrix4(),quaternion=new THREE.Quaternion(),scale=new THREE.Vector3(),position=new THREE.Vector3();
+  entries.forEach((entry,index)=>{
+    const ratio=Math.max(0,Math.min(1,entry.m/max)),direction=entry.v.clone().normalize(),
+          length=(2.2+10.8*Math.sqrt(ratio))*size,headLength=Math.max(.55*size,Math.min(length*.32,2.8*size)),
+          shaftLength=Math.max(.08,length-headLength),radius=(.055+.07*Math.sqrt(ratio))*size;
+    quaternion.setFromUnitVectors(up,direction);
+    position.copy(entry.p).addScaledVector(direction,shaftLength*.5);scale.set(radius,shaftLength,radius);matrix.compose(position,quaternion,scale);shafts.setMatrixAt(index,matrix);
+    position.copy(entry.p).addScaledVector(direction,shaftLength+headLength*.5);scale.set(radius*3.2,headLength,radius*3.2);matrix.compose(position,quaternion,scale);heads.setMatrixAt(index,matrix)
+  });
+  shafts.instanceMatrix.needsUpdate=heads.instanceMatrix.needsUpdate=true;resultVectorsGroup.add(shafts,heads);
+  q('#resultArrowCountInfo').textContent='Displaying '+entries.length.toLocaleString()+' '+symbol+' arrows from '+total.toLocaleString()+' saved field points.'
+}
+function rebuildResultLoads(){
+  if(!resultData)return;
+  resultLoadsGroup.clear();
+  const showForce=q('#resultShowForce').checked,showTorque=q('#resultShowTorque').checked,
+        forceMode=q('#resultForceComponent').value||'res',torqueMode=q('#resultTorqueComponent').value||'res',
+        records=resultData.header.loads||[];
+  if(!showForce&&!showTorque){
+    q('#resultBadge').textContent=resultQuantityMode()==='integral'?'Read-only B-field integral scan · loads hidden':'Read-only solved '+currentResultFieldSymbol()+' field · loads hidden';
+    return
+  }
+  const loads=records.map(record=>({record,force:loadComponentVector(new THREE.Vector3(...record.force_N),forceMode),torque:loadComponentVector(new THREE.Vector3(...record.torque_Nmm),torqueMode)})),
+        mf=Math.max(...loads.map(x=>x.force.length()),1e-12),mt=Math.max(...loads.map(x=>x.torque.length()),1e-12);
+  loads.forEach(({record,force,torque})=>{
+    const p=new THREE.Vector3(...record.position_mm);
+    if(showForce&&force.length()>mf*.0005){const ratio=Math.min(1,force.length()/mf),length=12+32*Math.sqrt(ratio);resultLoadsGroup.add(new THREE.ArrowHelper(force.clone().normalize(),p,length,C.force,5,3))}
+    if(showTorque&&torque.length()>mt*.0005){const ratio=Math.min(1,torque.length()/mt),radius=7+13*Math.sqrt(ratio);resultLoadsGroup.add(createTorqueCurvedArrow(torque,p,radius,C.torque))}
+  });
+  const labels=[];if(showForce)labels.push(forceMode==='res'?'Fres':'F'+forceMode);if(showTorque)labels.push(torqueMode==='res'?'Mres':'M'+torqueMode);
+  const prefix=resultQuantityMode()==='integral'?'Integral scan':'Solved '+currentResultFieldSymbol()+' field';
+  q('#resultBadge').textContent=prefix+' · '+labels.join(' + ')
+}
 function populateResultsTree(){const box=q('#resultsTree');box.innerHTML='';resultData.header.scene.forEach(item=>{const load=(resultData.header.loads||[]).find(x=>x.name===item.name),node=document.createElement('div');node.className='result-node';node.innerHTML=`<strong>${item.name}</strong><span class="meta">${item.type==='magnet'?'Permanent magnet':coilShapeLabel(item.shape)+' coil'}</span>${load?`<div class="meta" style="margin-top:5px">F = [${load.force_N.map(v=>v.toPrecision(3)).join(', ')}] N<br>T = [${load.torque_Nmm.map(v=>v.toPrecision(3)).join(', ')}] N.mm</div>`:''}`;box.appendChild(node)})}
 function sliceIndices(){const d=resultData,plane=q('#slicePlane').value,t=+q('#slicePosition').value/100;if(plane==='xy')return{fixed:'z',index:Math.round(t*(d.nz-1)),u:'x',v:'y',nu:d.nx,nv:d.ny};if(plane==='xz')return{fixed:'y',index:Math.round(t*(d.ny-1)),u:'x',v:'z',nu:d.nx,nv:d.nz};return{fixed:'x',index:Math.round(t*(d.nx-1)),u:'y',v:'z',nu:d.ny,nv:d.nz}}
-function sliceGridValue(s,iu,iv){return s.fixed==='z'?bValue(resultData,iu,iv,s.index,q('#sliceComponent').value):s.fixed==='y'?bValue(resultData,iu,s.index,iv,q('#sliceComponent').value):bValue(resultData,s.index,iu,iv,q('#sliceComponent').value)}
+function sliceGridValue(s,iu,iv){return s.fixed==='z'?fieldValue(resultData,iu,iv,s.index,q('#sliceComponent').value):s.fixed==='y'?fieldValue(resultData,iu,s.index,iv,q('#sliceComponent').value):fieldValue(resultData,s.index,iu,iv,q('#sliceComponent').value)}
 function axisArray(axis){return resultData[axis]}
 function colourMap(value,min,max,signed){let t=max>min?(value-min)/(max-min):.5;t=Math.max(0,Math.min(1,t));if(signed){const r=t<.5?Math.round(70+370*t):Math.round(255-60*(t-.5)*2),g=Math.round(80+120*(1-Math.abs(2*t-1))),b=t<.5?Math.round(255-80*t*2):Math.round(110-80*(t-.5)*2);return[r,g,b]}return[Math.round(35+220*t),Math.round(60+180*Math.sqrt(t)),Math.round(170-130*t)]}
 function drawProfileOverlayOnSlice(ctx,canvas,s){if(!q('#profileOverlayToggle').checked)return;ctx.save();ctx.strokeStyle='rgba(200,200,200,0.5)';ctx.lineWidth=2;const horizontal=q('#profileDirection').value==='u';if(horizontal){const maxIndex=Math.max(1,s.nv-1),offset=Math.round((+q('#profileOffset').value/100)*maxIndex),y=(1-offset/maxIndex)*canvas.height;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke()}else{const maxIndex=Math.max(1,s.nu-1),offset=Math.round((+q('#profileOffset').value/100)*maxIndex),x=(offset/maxIndex)*canvas.width;ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke()}ctx.restore()}
 function updateSlice(){if(!resultData)return;const s=sliceIndices(),values=new Float32Array(s.nu*s.nv);let min=Infinity,max=-Infinity;for(let u=0;u<s.nu;u++)for(let v=0;v<s.nv;v++){const val=sliceGridValue(s,u,v);values[u*s.nv+v]=val;min=Math.min(min,val);max=Math.max(max,val)}const canvas=q('#sliceCanvas'),ctx=canvas.getContext('2d'),image=ctx.createImageData(s.nu,s.nv),signed=q('#sliceComponent').value!=='mag';for(let u=0;u<s.nu;u++)for(let v=0;v<s.nv;v++){const [r,g,b]=colourMap(values[u*s.nv+v],min,max,signed),pixel=((s.nv-1-v)*s.nu+u)*4;image.data[pixel]=r;image.data[pixel+1]=g;image.data[pixel+2]=b;image.data[pixel+3]=255}const tmp=document.createElement('canvas');tmp.width=s.nu;tmp.height=s.nv;tmp.getContext('2d').putImageData(image,0,0);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.imageSmoothingEnabled=true;ctx.drawImage(tmp,0,0,canvas.width,canvas.height);drawProfileOverlayOnSlice(ctx,canvas,s);const fixedArray=axisArray(s.fixed),coord=fixedArray[s.index];q('#slicePositionLabel').textContent=s.fixed.toUpperCase()+' = '+coord.toFixed(3)+' mm';q('#sliceAxes').textContent=s.u.toUpperCase()+' × '+s.v.toUpperCase()+' · '+q('#sliceComponent').selectedOptions[0].text;q('#sliceCanvas').dataset.slice=JSON.stringify({fixed:s.fixed,index:s.index,u:s.u,v:s.v,nu:s.nu,nv:s.nv,min,max});updateSlicePlaneMesh(s,coord);updateProfile(s,values,min,max)}
 function updateSlicePlaneMesh(s,coord){const xu=resultData.x, yu=resultData.y, zu=resultData.z;if(s.fixed==='z'){resultSliceMesh.geometry.dispose();resultSliceMesh.geometry=new THREE.PlaneGeometry(xu[xu.length-1]-xu[0],yu[yu.length-1]-yu[0]);resultSliceMesh.position.set((xu[0]+xu[xu.length-1])/2,(yu[0]+yu[yu.length-1])/2,coord);resultSliceMesh.rotation.set(0,0,0)}else if(s.fixed==='y'){resultSliceMesh.geometry.dispose();resultSliceMesh.geometry=new THREE.PlaneGeometry(xu[xu.length-1]-xu[0],zu[zu.length-1]-zu[0]);resultSliceMesh.position.set((xu[0]+xu[xu.length-1])/2,coord,(zu[0]+zu[zu.length-1])/2);resultSliceMesh.rotation.set(Math.PI/2,0,0)}else{resultSliceMesh.geometry.dispose();resultSliceMesh.geometry=new THREE.PlaneGeometry(yu[yu.length-1]-yu[0],zu[zu.length-1]-zu[0]);resultSliceMesh.position.set(coord,(yu[0]+yu[yu.length-1])/2,(zu[0]+zu[zu.length-1])/2);resultSliceMesh.rotation.set(0,Math.PI/2,0)}}
-function updateProfile(s,values,min,max){const horizontal=q('#profileDirection').value==='u',offset=Math.round((+q('#profileOffset').value/100)*((horizontal?s.nv:s.nu)-1)),coords=axisArray(horizontal?s.u:s.v),vals=[];if(horizontal){for(let u=0;u<s.nu;u++)vals.push(values[u*s.nv+offset])}else{for(let v=0;v<s.nv;v++)vals.push(values[offset*s.nv+v])}const canvas=q('#profileCanvas'),ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height,pad=38,vmin=Math.min(...vals),vmax=Math.max(...vals),span=vmax-vmin||1;ctx.clearRect(0,0,w,h);ctx.strokeStyle='#394455';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(pad,10);ctx.lineTo(pad,h-pad);ctx.lineTo(w-10,h-pad);ctx.stroke();ctx.strokeStyle='#7c91ff';ctx.lineWidth=2;ctx.beginPath();vals.forEach((v,i)=>{const x=pad+(w-pad-12)*(i/Math.max(1,vals.length-1)),y=10+(h-pad-12)*(1-(v-vmin)/span);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();ctx.fillStyle='#99a6b7';ctx.font='12px Segoe UI';ctx.fillText(vmax.toExponential(3),2,18);ctx.fillText(vmin.toExponential(3),2,h-pad);q('#profileAxis').textContent=(horizontal?s.u:s.v).toUpperCase()+' position [mm]';q('#profileRange').textContent='min '+vmin.toExponential(3)+' · max '+vmax.toExponential(3)+' T';const offsetAxis=axisArray(horizontal?s.v:s.u);q('#profileOffsetLabel').textContent=(horizontal?s.v:s.u).toUpperCase()+' = '+offsetAxis[offset].toFixed(3)+' mm'}
-async function loadMfield(file){initResults3D();try{resultData=parseMfield(await file.arrayBuffer())}catch(error){alert(error.message);return}resultGeometry.clear();resultData.header.scene.forEach(addResultGeometry);populateResultsTree();q('#resultTitle').textContent=file.name;q('#resultSummary').textContent=resultData.nx+' × '+resultData.ny+' × '+resultData.nz+' · '+(file.size/1048576).toFixed(1)+' MB · permanent-magnet field · '+resultData.header.solver.engine;const total=resultData.nx*resultData.ny*resultData.nz,initial=Math.min(total,2500);q('#resultArrowCount').max=q('#resultArrowCountValue').max=total;q('#resultArrowCount').value=q('#resultArrowCountValue').value=initial;q('#resultArrowCountInfo').textContent='Displaying up to '+initial.toLocaleString()+' arrows from '+total.toLocaleString()+' saved field points.';rebuildResultVectors();rebuildResultLoads();updateSlice();fitResultView('iso')}
+function updateProfile(s,values,min,max){
+  const horizontal=q('#profileDirection').value==='u',
+        offset=Math.round((+q('#profileOffset').value/100)*((horizontal?s.nv:s.nu)-1)),
+        coords=axisArray(horizontal?s.u:s.v),vals=[];
+  if(horizontal){for(let u=0;u<s.nu;u++)vals.push(values[u*s.nv+offset])}
+  else{for(let v=0;v<s.nv;v++)vals.push(values[offset*s.nv+v])}
+  const canvas=q('#profileCanvas'),ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height,pad=38,
+        vmin=Math.min(...vals),vmax=Math.max(...vals),span=vmax-vmin||1;
+  ctx.clearRect(0,0,w,h);ctx.strokeStyle='#394455';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(pad,10);ctx.lineTo(pad,h-pad);ctx.lineTo(w-10,h-pad);ctx.stroke();
+  ctx.strokeStyle='#7c91ff';ctx.lineWidth=2;ctx.beginPath();
+  vals.forEach((v,i)=>{const x=pad+(w-pad-12)*(i/Math.max(1,vals.length-1)),y=10+(h-pad-12)*(1-(v-vmin)/span);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();
+  ctx.fillStyle='#99a6b7';ctx.font='12px Segoe UI';ctx.fillText(vmax.toExponential(3),2,18);ctx.fillText(vmin.toExponential(3),2,h-pad);
+  q('#profileAxis').textContent=(horizontal?s.u:s.v).toUpperCase()+' position [mm]';
+  q('#profileRange').textContent='min '+vmin.toExponential(3)+' · max '+vmax.toExponential(3)+' '+currentResultFieldUnit();
+  const offsetAxis=axisArray(horizontal?s.v:s.u);q('#profileOffsetLabel').textContent=(horizontal?s.v:s.u).toUpperCase()+' = '+offsetAxis[offset].toFixed(3)+' mm'
+}
+
+function integralComponentValue(scan,index,component){
+  const base=index*3,x=scan.values[base],y=scan.values[base+1],z=scan.values[base+2];
+  return component==='x'?x:component==='y'?y:component==='z'?z:Math.hypot(x,y,z)
+}
+function selectedIntegralScan(){
+  if(!resultData?.integrals?.length)return null;
+  const index=Math.max(0,Math.min(resultData.integrals.length-1,Math.round(+q('#integralScanSelect').value||0)));
+  return resultData.integrals[index]
+}
+function rebuildIntegral3D(){
+  if(!resultIntegralGroup)return;
+  resultIntegralGroup.clear();
+  const scan=selectedIntegralScan();
+  if(!scan||resultQuantityMode()!=='integral')return;
+  const meta=scan.meta,centre=new THREE.Vector3(...(meta.centre_mm||[0,0,0])),
+        scanDir=new THREE.Vector3(...(meta.scan_direction||[0,1,0])).normalize(),
+        intDir=new THREE.Vector3(...(meta.integration_direction||[1,0,0])).normalize(),
+        points=Array.from(scan.s,s=>centre.clone().addScaledVector(scanDir,s));
+  if(points.length>=2){
+    const geometry=new THREE.BufferGeometry().setFromPoints(points),
+          line=new THREE.Line(geometry,new THREE.LineBasicMaterial({color:C.accent,transparent:true,opacity:.95}));
+    resultIntegralGroup.add(line);
+    const markerMat=new THREE.MeshBasicMaterial({color:C.accent});
+    [points[0],points[points.length-1]].forEach(point=>{
+      const marker=new THREE.Mesh(new THREE.SphereGeometry(1.6,14,10),markerMat.clone());marker.position.copy(point);resultIntegralGroup.add(marker)
+    });
+    const span=Math.max(20,points[0].distanceTo(points[points.length-1])),
+          intLength=meta.mode==='fin'?Math.max(8,Math.min(span*.6,Number(meta.finite_length_mm)||span*.35)):Math.max(18,span*.28),
+          origin=centre.clone();
+    resultIntegralGroup.add(new THREE.ArrowHelper(intDir,origin,intLength*.5,0xffb347,4,2.5));
+    resultIntegralGroup.add(new THREE.ArrowHelper(intDir.clone().negate(),origin,intLength*.5,0xffb347,4,2.5))
+  }
+}
+function drawIntegralPlot(){
+  const scan=selectedIntegralScan(),canvas=q('#integralCanvas'),ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(!scan){
+    ctx.fillStyle='#99a6b7';ctx.font='13px Segoe UI';ctx.fillText('No field-integral scan stored in this file.',20,35);
+    q('#integralMetadata').textContent='This .mfield does not contain a Radia FldInt scan.';
+    q('#integralRange').textContent='';
+    return
+  }
+  const component=q('#integralComponent').value,vals=Array.from({length:scan.meta.count},(_,i)=>integralComponentValue(scan,i,component)),
+        coords=Array.from(scan.s),w=canvas.width,h=canvas.height,padL=52,padB=38,padT=18,padR=12,
+        vmin=Math.min(...vals),vmax=Math.max(...vals),span=vmax-vmin||1,smin=Math.min(...coords),smax=Math.max(...coords),sspan=smax-smin||1;
+  ctx.strokeStyle='#394455';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(padL,padT);ctx.lineTo(padL,h-padB);ctx.lineTo(w-padR,h-padB);ctx.stroke();
+  if(vmin<=0&&vmax>=0){
+    const y0=padT+(h-padT-padB)*(1-(0-vmin)/span);ctx.strokeStyle='rgba(150,160,175,.35)';ctx.beginPath();ctx.moveTo(padL,y0);ctx.lineTo(w-padR,y0);ctx.stroke()
+  }
+  ctx.strokeStyle='#7c91ff';ctx.lineWidth=2.2;ctx.beginPath();
+  vals.forEach((v,i)=>{const x=padL+(w-padL-padR)*(coords[i]-smin)/sspan,y=padT+(h-padT-padB)*(1-(v-vmin)/span);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();
+  ctx.fillStyle='#99a6b7';ctx.font='12px Segoe UI';ctx.fillText(vmax.toExponential(3),2,padT+4);ctx.fillText(vmin.toExponential(3),2,h-padB);
+  const meta=scan.meta,intDir=(meta.integration_direction||[]).map(v=>Number(v).toFixed(3)).join(', '),scanDir=(meta.scan_direction||[]).map(v=>Number(v).toFixed(3)).join(', ');
+  q('#integralMetadata').textContent=`${meta.mode==='fin'?'Finite':'Infinite'} integral along [${intDir}] · scan along [${scanDir}] · centre [${(meta.centre_mm||[]).map(v=>Number(v).toFixed(2)).join(', ')}] mm`;
+  q('#integralAxis').textContent='Scan position [mm]';
+  q('#integralRange').textContent='min '+vmin.toExponential(3)+' · max '+vmax.toExponential(3)+' T·mm'
+}
+function updateResultQuantityUI(){
+  if(!resultData)return;
+  const mode=resultQuantityMode(),isIntegral=mode==='integral',
+        hasH=!!resultData.h,hasIntegral=!!resultData.integrals?.length;
+  q('#resultQuantity').querySelector('option[value="h"]').disabled=!hasH;
+  q('#resultQuantity').querySelector('option[value="integral"]').disabled=!hasIntegral;
+  if(mode==='h'&&!hasH){q('#resultQuantity').value='b';return updateResultQuantityUI()}
+  if(mode==='integral'&&!hasIntegral){q('#resultQuantity').value='b';return updateResultQuantityUI()}
+  q('#resultFieldControls').hidden=isIntegral;
+  q('#resultFieldInspector').hidden=isIntegral;
+  q('#resultIntegralInspector').hidden=!isIntegral;
+  resultSliceMesh.visible=!isIntegral;
+  resultVectorsGroup.visible=!isIntegral;
+  resultIntegralGroup.visible=isIntegral;
+  if(isIntegral){
+    q('#resultQuantityNote').textContent='Radia FldInt scan · Cartesian B-component integrals in T·mm.';
+    rebuildResultVectors();rebuildIntegral3D();drawIntegralPlot();rebuildResultLoads()
+  }else{
+    const symbol=currentResultFieldSymbol();
+    q('#resultQuantityNote').textContent=symbol==='B'?'Magnetic flux density from the solved Radia volume.':'Radia magnetic field strength μ₀H, stored in tesla.';
+    q('#resultFieldControlsTitle').textContent='Permanent-magnet '+symbol+' field';
+    q('#resultVectorsLabel').textContent='Show '+symbol+' field';
+    syncSliceComponentLabels();q('#probeValue').textContent='Move over the map to probe '+symbol;rebuildResultVectors();updateSlice();resultIntegralGroup.clear();rebuildResultLoads()
+  }
+}
+
+async function loadMfield(file){
+  initResults3D();
+  try{resultData=parseMfield(await file.arrayBuffer())}catch(error){alert(error.message);return}
+  resultGeometry.clear();resultVectorsGroup.clear();resultIntegralGroup.clear();
+  resultData.header.scene.forEach(addResultGeometry);populateResultsTree();
+  q('#resultTitle').textContent=file.name;
+  const extras=[resultData.h?'B + H':'B only',resultData.integrals.length?resultData.integrals.length+' integral scan'+(resultData.integrals.length===1?'':'s'):null].filter(Boolean).join(' · ');
+  q('#resultSummary').textContent=resultData.nx+' × '+resultData.ny+' × '+resultData.nz+' · '+(file.size/1048576).toFixed(1)+' MB · '+extras+' · '+resultData.header.solver.engine;
+  const total=resultData.nx*resultData.ny*resultData.nz,initial=Math.min(total,2500);
+  q('#resultArrowCount').max=q('#resultArrowCountValue').max=total;
+  q('#resultArrowCount').value=q('#resultArrowCountValue').value=initial;
+  q('#integralScanSelect').innerHTML='';
+  resultData.integrals.forEach((scan,index)=>{
+    const option=document.createElement('option');option.value=index;option.textContent=scan.meta.name||('Integral scan '+(index+1));q('#integralScanSelect').appendChild(option)
+  });
+  q('#resultQuantity').value='b';
+  updateResultQuantityUI();
+  rebuildResultLoads();
+  fitResultView('iso')
+}
 function openResultsViewer(){q('#resultsOverlay').hidden=false;initResults3D();setTimeout(()=>resultResizeObserver?.observe(q('#resultViewport')),0)}function closeResultsViewer(){q('#resultsOverlay').hidden=true}
-q('#exportRadia').onclick=openExportDialog;q('#closeExport').onclick=q('#cancelExport').onclick=closeExportDialog;q('#fitExportBox').onclick=fitExportBox;q('#downloadRadiaSolver').onclick=exportRadiaScript;root.querySelectorAll('.export-config').forEach(x=>x.oninput=updateExportEstimate);q('#openResults').onclick=openResultsViewer;q('#closeResults').onclick=closeResultsViewer;q('#resultFile').onchange=e=>e.target.files[0]&&loadMfield(e.target.files[0]);root.querySelectorAll('[data-result-view]').forEach(b=>b.onclick=()=>fitResultView(b.dataset.resultView));q('#resultVectors').onchange=rebuildResultVectors;function setResultArrowCount(value,rebuild=true){if(!resultData)return;const total=resultData.nx*resultData.ny*resultData.nz,v=Math.max(1,Math.min(total,Math.round(+value||1)));q('#resultArrowCount').value=q('#resultArrowCountValue').value=v;q('#resultArrowCountInfo').textContent='Requested '+v.toLocaleString()+' arrows from '+total.toLocaleString()+' saved field points.';if(rebuild)rebuildResultVectors()}q('#resultArrowCount').oninput=e=>{q('#resultArrowCountValue').value=e.target.value;setResultArrowCount(e.target.value,false)};q('#resultArrowCount').onchange=e=>setResultArrowCount(e.target.value,true);q('#resultArrowCountValue').onchange=e=>setResultArrowCount(e.target.value,true);function setResultArrowSize(value,rebuild=true){const v=Math.max(.25,Math.min(4,+value||1));q('#resultArrowSize').value=q('#resultArrowSizeValue').value=v.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');if(rebuild)rebuildResultVectors()}q('#resultArrowSize').oninput=e=>{q('#resultArrowSizeValue').value=e.target.value};q('#resultArrowSize').onchange=e=>setResultArrowSize(e.target.value,true);q('#resultArrowSizeValue').onchange=e=>setResultArrowSize(e.target.value,true);function setResultArrowColor(value,rebuild=true){const hex=String(value||'').trim();if(!/^#[0-9a-fA-F]{6}$/.test(hex)){q('#resultArrowColorValue').value=q('#resultArrowColor').value.toUpperCase();return}q('#resultArrowColor').value=hex.toLowerCase();q('#resultArrowColorValue').value=hex.toUpperCase();if(rebuild)rebuildResultVectors()}q('#resultArrowColor').oninput=e=>setResultArrowColor(e.target.value,true);q('#resultArrowColorValue').onchange=e=>setResultArrowColor(e.target.value,true);['#resultShowForce','#resultForceComponent','#resultShowTorque','#resultTorqueComponent'].forEach(id=>q(id).onchange=rebuildResultLoads);['#slicePlane','#sliceComponent','#slicePosition','#profileDirection','#profileOffset','#profileOverlayToggle'].forEach(id=>q(id).oninput=updateSlice);q('#sliceCanvas').onmousemove=e=>{if(!resultData)return;const rect=e.target.getBoundingClientRect(),s=sliceIndices(),u=Math.max(0,Math.min(s.nu-1,Math.round((e.clientX-rect.left)/rect.width*(s.nu-1)))),v=Math.max(0,Math.min(s.nv-1,Math.round((1-(e.clientY-rect.top)/rect.height)*(s.nv-1)))),val=sliceGridValue(s,u,v),ua=axisArray(s.u),va=axisArray(s.v);q('#probeValue').textContent=s.u.toUpperCase()+' '+ua[u].toFixed(2)+' · '+s.v.toUpperCase()+' '+va[v].toFixed(2)+' · '+q('#sliceComponent').selectedOptions[0].text+' '+val.toExponential(4)+' T'};
+q('#exportRadia').onclick=openExportDialog;
+q('#closeExport').onclick=q('#cancelExport').onclick=closeExportDialog;
+q('#fitExportBox').onclick=fitExportBox;
+q('#downloadRadiaSolver').onclick=exportRadiaScript;
+root.querySelectorAll('.export-config').forEach(x=>x.oninput=()=>{
+  if(x.id==='integralEnabled'||x.id==='integralMode')syncIntegralExportUI();
+  else updateExportEstimate()
+});
+q('#integralEnabled').onchange=syncIntegralExportUI;
+q('#integralMode').onchange=syncIntegralExportUI;
+q('#openResults').onclick=openResultsViewer;
+q('#closeResults').onclick=closeResultsViewer;
+q('#resultFile').onchange=e=>e.target.files[0]&&loadMfield(e.target.files[0]);
+root.querySelectorAll('[data-result-view]').forEach(b=>b.onclick=()=>fitResultView(b.dataset.resultView));
+q('#resultQuantity').onchange=updateResultQuantityUI;
+q('#integralScanSelect').onchange=()=>{rebuildIntegral3D();drawIntegralPlot()};
+q('#integralComponent').onchange=drawIntegralPlot;
+q('#resultVectors').onchange=rebuildResultVectors;
+function setResultArrowCount(value,rebuild=true){
+  if(!resultData)return;
+  const total=resultData.nx*resultData.ny*resultData.nz,v=Math.max(1,Math.min(total,Math.round(+value||1)));
+  q('#resultArrowCount').value=q('#resultArrowCountValue').value=v;
+  q('#resultArrowCountInfo').textContent='Requested '+v.toLocaleString()+' arrows from '+total.toLocaleString()+' saved field points.';
+  if(rebuild)rebuildResultVectors()
+}
+q('#resultArrowCount').oninput=e=>{q('#resultArrowCountValue').value=e.target.value;setResultArrowCount(e.target.value,false)};
+q('#resultArrowCount').onchange=e=>setResultArrowCount(e.target.value,true);
+q('#resultArrowCountValue').onchange=e=>setResultArrowCount(e.target.value,true);
+function setResultArrowSize(value,rebuild=true){
+  const v=Math.max(.25,Math.min(4,+value||1));q('#resultArrowSize').value=q('#resultArrowSizeValue').value=v.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
+  if(rebuild)rebuildResultVectors()
+}
+q('#resultArrowSize').oninput=e=>{q('#resultArrowSizeValue').value=e.target.value};
+q('#resultArrowSize').onchange=e=>setResultArrowSize(e.target.value,true);
+q('#resultArrowSizeValue').onchange=e=>setResultArrowSize(e.target.value,true);
+function setResultArrowColor(value,rebuild=true){
+  const hex=String(value||'').trim();
+  if(!/^#[0-9a-fA-F]{6}$/.test(hex)){q('#resultArrowColorValue').value=q('#resultArrowColor').value.toUpperCase();return}
+  q('#resultArrowColor').value=hex.toLowerCase();q('#resultArrowColorValue').value=hex.toUpperCase();if(rebuild)rebuildResultVectors()
+}
+q('#resultArrowColor').oninput=e=>setResultArrowColor(e.target.value,true);
+q('#resultArrowColorValue').onchange=e=>setResultArrowColor(e.target.value,true);
+['#resultShowForce','#resultForceComponent','#resultShowTorque','#resultTorqueComponent'].forEach(id=>q(id).onchange=rebuildResultLoads);
+['#slicePlane','#sliceComponent','#slicePosition','#profileDirection','#profileOffset','#profileOverlayToggle'].forEach(id=>q(id).oninput=updateSlice);
+q('#sliceCanvas').onmousemove=e=>{
+  if(!resultData||resultQuantityMode()==='integral')return;
+  const rect=e.target.getBoundingClientRect(),s=sliceIndices(),
+        u=Math.max(0,Math.min(s.nu-1,Math.round((e.clientX-rect.left)/rect.width*(s.nu-1)))),
+        v=Math.max(0,Math.min(s.nv-1,Math.round((1-(e.clientY-rect.top)/rect.height)*(s.nv-1)))),
+        val=sliceGridValue(s,u,v),ua=axisArray(s.u),va=axisArray(s.v);
+  q('#probeValue').textContent=s.u.toUpperCase()+' '+ua[u].toFixed(2)+' · '+s.v.toUpperCase()+' '+va[v].toFixed(2)+' · '+q('#sliceComponent').selectedOptions[0].text+' '+val.toExponential(4)+' '+currentResultFieldUnit()
+};
 
 // ---------- Publication Figure Studio ----------
 const FIGURE_VIEWS={
@@ -1576,7 +2076,7 @@ figureSvg.addEventListener('pointercancel',()=>{figurePanStart=null;figurePointe
 q('#saveCad').onclick=downloadCadProject;q('#openCad').onclick=()=>{q('#openCadFile').value='';q('#openCadFile').click()};q('#importCad').onclick=()=>{q('#importCadFile').value='';q('#importCadFile').click()};q('#undoCad').onclick=undoCad;q('#redoCad').onclick=redoCad;q('#openCadFile').onchange=e=>e.target.files[0]&&loadCadProjectFile(e.target.files[0],'replace');q('#importCadFile').onchange=e=>e.target.files[0]&&loadCadProjectFile(e.target.files[0],'merge');
 q('#groupBarToggle').onclick=()=>{const bar=q('#groupToolbar'),opening=bar.hidden;bar.hidden=!opening;q('#groupBarToggle').classList.toggle('open',opening);q('#groupBarToggle').title=opening?'Close group operations':'Open group operations'};root.querySelectorAll('.group-command').forEach(button=>button.onclick=()=>openGroupOperation(button.dataset.operation));q('#closeOperation').onclick=q('#cancelOperation').onclick=closeGroupOperation;q('#applyOperation').onclick=applyGroupOperation;['#revolveAxis','#revolveAngle','#revolveCopies','#revolvePx','#revolvePy','#revolvePz','#revolvePreview','#patternCopies','#patternDx','#patternDy','#patternDz','#patternPreview','#mirrorPlane','#mirrorOffset','#mirrorCopy','#mirrorPreview'].forEach(id=>{q(id).addEventListener('input',updateOperationPreview);q(id).addEventListener('change',updateOperationPreview)});
 q('#addMagnet').onclick=()=>{const shape=q('#newMagnetShape').value,o=createMagnet(null,shape);o.position.set(-20+objects.length*4,0,25);chooseTool('translate');commitCadHistory('Add '+magnetShapeLabel(shape).toLowerCase()+' magnet')};q('#addCoil').onclick=()=>{const shape=q('#newCoilShape').value,o=createCoil(shape);o.position.set(20+objects.length*4,0,0);chooseTool('translate');commitCadHistory('Add '+coilShapeLabel(shape).toLowerCase()+' coil')};q('#selectTool').onclick=()=>chooseTool('select');q('#moveTool').onclick=()=>chooseTool('translate');q('#rotateTool').onclick=()=>chooseTool('rotate');q('#resizeTool').onclick=()=>chooseTool('scale');q('#deleteTool').onclick=deleteSelected;q('#duplicate').onclick=duplicateSelected;
-q('#gridToggle').onchange=e=>{grid.visible=e.target.checked;commitCadHistory('Change display')};q('#snapToggle').onchange=e=>{transform.setTranslationSnap(e.target.checked?5:null);transform.setRotationSnap(e.target.checked?THREE.MathUtils.degToRad(15):null);transform.setScaleSnap(e.target.checked?.1:null);commitCadHistory('Change snapping')};['#currentArrowsToggle','#visualMode','#fieldToggle','#fieldMode','#fieldPlane','#fieldDensity','#forcesToggle','#forceComponent','#torqueToggle','#torqueComponent'].forEach(id=>q(id).onchange=()=>{schedule();commitCadHistory('Change display')});root.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>setView(b.dataset.view));
+q('#gridToggle').onchange=e=>{grid.visible=e.target.checked;commitCadHistory('Change display')};q('#snapToggle').onchange=e=>{transform.setTranslationSnap(e.target.checked?5:null);transform.setRotationSnap(e.target.checked?THREE.MathUtils.degToRad(15):null);transform.setScaleSnap(e.target.checked?.1:null);commitCadHistory('Change snapping')};['#currentArrowsToggle','#visualMode','#fieldToggle','#fieldQuantity','#fieldMode','#fieldPlane','#fieldDensity','#forcesToggle','#forceComponent','#torqueToggle','#torqueComponent'].forEach(id=>q(id).onchange=()=>{schedule();commitCadHistory('Change display')});root.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>setView(b.dataset.view));
 q('#objectName').onchange=e=>{if(selected){selected.name=e.target.value||selected.name;renderTree();selectObject(selected);commitCadHistory('Rename body')}};q('#lockProperty').onchange=e=>{if(selected)setLocked(selected,e.target.checked)};root.querySelectorAll('.transform-value').forEach(input=>input.onchange=()=>{if(!selected||selected.userData.locked)return;selected.position.set(+q('#px').value||0,+q('#py').value||0,+q('#pz').value||0);selected.rotation.set(THREE.MathUtils.degToRad(+q('#rx').value||0),THREE.MathUtils.degToRad(+q('#ry').value||0),THREE.MathUtils.degToRad(+q('#rz').value||0));selectionBox.update();schedule();commitCadHistory('Transform body')});root.querySelectorAll('.magnet-dimension').forEach(input=>input.onchange=()=>{if(!selected||selected.userData.type!=='magnet')return;selected.userData.dimensions={x:Math.max(1,+q('#mx').value),y:Math.max(1,+q('#my').value),z:Math.max(1,+q('#mz').value)};rebuildMagnet(selected);selectionBox.update();renderTree();schedule();commitCadHistory('Resize magnet')});root.querySelectorAll('.cylinder-magnet-geometry').forEach(input=>input.onchange=()=>{if(!selected||selected.userData.type!=='magnet')return;selected.userData.radius=Math.max(.1,+q('#magnetRadius').value||18);selected.userData.height=Math.max(.1,+q('#magnetHeight').value||14);rebuildMagnet(selected);selectionBox.update();renderTree();schedule();commitCadHistory('Resize cylindrical magnet')});q('#magnetShape').onchange=e=>{if(!selected||selected.userData.type!=='magnet')return;selected.userData.shape=e.target.value==='cylinder'?'cylinder':'cuboid';rebuildMagnet(selected);syncProperties();renderTree();selectionBox.update();schedule();commitCadHistory('Change magnet shape')};
 function setStrength(v){if(!selected||selected.userData.type!=='magnet')return;selected.userData.strength=Math.max(.2,+v||1);q('#magnetStrength').value=q('#magnetStrengthValue').value=selected.userData.strength;schedule()}q('#magnetStrength').oninput=e=>setStrength(e.target.value);q('#magnetStrength').onchange=()=>commitCadHistory('Change magnetization');q('#magnetStrengthValue').onchange=e=>{setStrength(e.target.value);commitCadHistory('Change magnetization')};q('#coilShape').onchange=e=>{if(!selected||selected.userData.type!=='coil')return;const previous=selected.userData.shape;selected.userData.shape=e.target.value;if(e.target.value==='solenoid'){if(previous!=='solenoid'&&selected.userData.turns>40)selected.userData.turns=12;if(previous!=='solenoid'&&selected.userData.wireRadius>1.8)selected.userData.wireRadius=1.0;if(selected.userData.integration.path<192)selected.userData.integration.path=384}rebuildCoil(selected);syncProperties();renderTree();selectionBox.update();schedule();commitCadHistory('Change coil shape')};function updateCoil(){if(!selected||selected.userData.type!=='coil')return;const d=selected.userData;d.radius=Math.max(2,+q('#coilRadius').value||25);d.length=Math.max(2,+q('#racetrackLength').value||55);d.endRadius=Math.max(2,+q('#racetrackRadius').value||18);d.solenoidRadius=Math.max(.1,+q('#solenoidRadius').value||20);d.solenoidLength=Math.max(.1,+q('#solenoidLength').value||50);d.turns=Math.max(1,Math.round(+q('#coilTurns').value||1));d.wireRadius=Math.max(.15,+q('#wireRadius').value||2.8);rebuildCoil(selected);selectionBox.update();renderTree();schedule();commitCadHistory('Edit coil geometry')}root.querySelectorAll('.coil-geometry').forEach(input=>input.onchange=updateCoil);function setCurrent(v){if(!selected||selected.userData.type!=='coil')return;selected.userData.current=Math.max(-20,Math.min(20,+v||0));q('#coilCurrent').value=q('#coilCurrentValue').value=selected.userData.current;rebuildCoil(selected);renderTree();schedule()}q('#coilCurrent').oninput=e=>setCurrent(e.target.value);q('#coilCurrent').onchange=()=>commitCadHistory('Change coil current');q('#coilCurrentValue').onchange=e=>{setCurrent(e.target.value);commitCadHistory('Change coil current')};
 q('#sceneMenu').onclick=()=>{q('#scenePanel').classList.toggle('open');q('#propertyPanel').classList.remove('open')};q('#propertyMenu').onclick=()=>{q('#propertyPanel').classList.toggle('open');q('#scenePanel').classList.remove('open')};const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();renderer.domElement.onpointerdown=e=>pointerStart={x:e.clientX,y:e.clientY};renderer.domElement.onpointerup=e=>{if(!pointerStart||Math.hypot(e.clientX-pointerStart.x,e.clientY-pointerStart.y)>4)return;const r=renderer.domElement.getBoundingClientRect();pointer.set(2*(e.clientX-r.left)/r.width-1,-2*(e.clientY-r.top)/r.height+1);raycaster.setFromCamera(pointer,camera);const hits=raycaster.intersectObjects(objectsGroup.children,true);selectObject(hits.length?(hits[0].object.userData.owner||hits[0].object):null)};addEventListener('keydown',e=>{const command=e.ctrlKey||e.metaKey,key=e.key.toLowerCase();if(command&&((e.shiftKey&&key==='z')||key==='y')){e.preventDefault();redoCad();return}if(command&&key==='z'){e.preventDefault();undoCad();return}if(command&&key==='s'){e.preventDefault();downloadCadProject();return}if(command&&key==='o'){e.preventDefault();q('#openCadFile').value='';q('#openCadFile').click();return}if(['INPUT','SELECT'].includes(document.activeElement?.tagName))return;const k=e.key.toLowerCase();if(k==='w')chooseTool('translate');if(k==='e')chooseTool('rotate');if(k==='r')chooseTool('scale');if(k==='f')fitView();if(e.key==='Delete')deleteSelected()});new ResizeObserver(()=>{const w=viewport.clientWidth,h=viewport.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}).observe(viewport);(function animate(){orbit.update();if(selected)selectionBox.update();renderer.render(scene,camera);triadDirection.copy(camera.position).sub(orbit.target).normalize().multiplyScalar(3);triadCamera.position.copy(triadDirection);triadCamera.up.copy(camera.up);triadCamera.lookAt(0,0,0);triadRenderer.render(triadScene,triadCamera);requestAnimationFrame(animate)})();
