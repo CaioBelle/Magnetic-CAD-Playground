@@ -29,3 +29,4 @@
 - **v4.8** — Cylindrical magnet + solenoid
 - **v4.9** — Solenoid visual rebuild
 - **v5.0** — Figure Studio solenoid depth + current arrows
+- **v5.5** — Spherical PM geometry, spherical coverage/lattice, PM-fidelity Radia export, parity-aware N/S layouts, and spherical Figure Studio / CAD visualization

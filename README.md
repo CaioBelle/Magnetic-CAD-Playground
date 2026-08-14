@@ -2,83 +2,84 @@
 
 A lightweight browser CAD for building magnetic systems with permanent magnets and coils, visualizing them in 3D, generating **Radia** simulations, and creating clean technical drawings.
 
-Current stable version: **v5.0**
+Current stable version: **v5.5**
 
-Branch Offline has an offline version ready that runs with a local server (not set as default because of the simplicity of the CSS+JS).
+The `offline` branch contains a fully local Three.js runtime variant. The main branch keeps the simple direct-open workflow.
 
 ## Run
 
-Open:
-
-`MagneticCAD.html`
-
-in **Edge** or **Chrome**.
-
-No installation is required. Internet access is needed to load the pinned Three.js modules.
+Open `MagneticCAD.html` in **Edge** or **Chrome**. No installation is required. Internet access is needed only to load the pinned Three.js modules used by the main build.
 
 ## Main features
 
-- Cuboid and cylindrical permanent magnets
-- Annular, racetrack, infinite-line and solenoid coils
+- Permanent magnets: cuboid, cylindrical/disc, and spherical-shell segment
+- Coils: annular, racetrack, infinite line, and solenoid
 - 3D move / rotate / resize tools
-- Circular pattern, linear pattern and mirror
+- Circular pattern, linear pattern, mirror, spherical lattice, and spherical coverage
+- Editable polar-ring spherical layouts with fixed-count position optimization
+- N/S checkerboard and alternating spherical topologies with even-parity constraints
 - Undo / redo
-- Save, open and import `.magcad` projects
+- Save, open, and import `.magcad` projects
 - Force and torque visualization
 - Radia field export and `.mfield` Results viewer
 - Figure Studio with SVG / PNG export
+
+## Spherical geometries — v5.5
+
+v5.5 adds the spherical-motor workflow:
+
+- Editable spherical-shell PM primitive: inner radius, radial thickness, horizontal/vertical angular span, and magnetization mode
+- Local **Spherical lattice** for shell segments
+- **Spherical coverage** for shell or equal-size circular PMs
+- Selected magnet is the 0° polar reference; full-sphere layouts include the fixed 180° opposite polar piece
+- Intermediate polar angles and magnet counts remain editable
+- **Optimize positions** preserves user-entered ring populations; **Auto layout** regenerates the topology
+- Alternating layouts require even populations on intermediate rings and an even number of intermediate rings
+- Checkerboard / around-ring / ring-to-ring polarity patterns
+- N/S colors follow actual magnetization in the CAD scene, previews, and Figure Studio
 
 ## Radia workflow
 
 Magnetic calculations use [Radia](https://github.com/ochubar/Radia), ESRF's 3D magnetostatics code, through its Python interface.
 
-For a solve, Magnetic CAD generates a Python script directly from the CAD scene. Cuboid permanent magnets are created with `rad.ObjRecMag`, cylindrical magnets with `rad.ObjCylMag`, and their position, orientation and magnetization are transferred to the Radia model. The permanent-magnet field is then sampled with `rad.Fld`.
+Magnetic CAD generates a Python solver directly from the CAD scene:
+
+- Cuboid PM → native `rad.ObjRecMag`
+- Cylindrical PM → native `rad.ObjCylMag`
+- Spherical-shell PM → convergent convex `rad.ObjPolyhdr` discretization
+
+For spherical-shell magnets, each angular cell is split into two convex triangular conical frusta. Radial magnetization is assigned per frustum from its spherical centroid direction. PM-fidelity metadata and an optional 2× discretization spot-check are available for quantitative work.
 
 1. Build the magnetic scene.
-2. Click **Radia solve…**
-3. Define the field box, sampling and source/integration resolution.
+2. Click **Radia solve…**.
+3. Define the field box and resolution.
 4. Download the generated `*_radia_solve.py`.
 5. Run it in a Python environment with **Radia** installed.
 6. Open the generated `.mfield` with **Results viewer**.
 
-The `.mfield` stores the sampled magnetic field, scene geometry and calculated coil loads. Coil force and torque are obtained by numerical integration of the Lorentz force `J × B` over the conductor volume.
+The `.mfield` stores the sampled permanent-magnet field, exported source geometry, PM-fidelity information, and calculated coil loads. Coil force and torque are obtained by numerical integration of `J × B` over the conductor volume.
 
-The `magnetics` branch extends this workflow with straight-line magnetic-field integrals using `rad.FldInt()`, with independently configurable integration and scan directions.
+The `magnetics` branch extends this workflow with straight-line magnetic-field integrals using `rad.FldInt()`, including independently configurable integration and scan directions.
 
-## Figure Studio
+## Results and Figure Studio
 
-Figure Studio creates publication-oriented 2D drawings from the CAD scene.
-
-It supports:
-
-- Top, front, right and isometric views
-- Object-level styling and layer order
-- Magnetization and current arrows
-- Force and torque arrows
-- Radia field streamlines
-- Configurable legend
-- SVG and PNG export
+- Results reconstructs the actual Radia-source geometry used for the solve, including faceted spherical PMs
+- Field arrows, slices/profiles, force, and torque loads
+- Figure Studio: top/front/right/isometric views, object styling/layers, magnetization/current arrows, Radia B-field overlays, force/torque arrows, configurable legend, SVG and PNG export
 
 ## Physics scope
 
-- The exported magnetic field is generated by the permanent magnets.
-- Coil force and torque are calculated from the Lorentz force `J × B`.
+- The exported magnetic field is generated by permanent magnets.
+- Coil force and torque use `J × B`.
 - Coil self-field and coil-to-coil forces are intentionally omitted.
+- Quick CAD field/load visuals are conceptual; `.mfield` is the Radia solver output.
 
 ## Files
 
 - `MagneticCAD.html` — application
 - `README.md` — this file
-- `.ico` — optional icon for a desktop shortcut
+- `magneticcad_icon.ico` / `magneticcad_icon.png` — optional shortcut icons
 - `.magcad` — saved CAD project
 - `.mfield` — Radia result file
 
-## Versions
-
-Stable development milestones are preserved as Git tags.
-
-Examples:
-
-`v1.9` · `v2.5` · `v3.8` · `v4.5` · `v4.8` · `v5.0`
-
-See the repository tags for the complete history.
+Stable development milestones are preserved as Git tags. See `VERSION_HISTORY.md` and the repository tags for the complete history.
