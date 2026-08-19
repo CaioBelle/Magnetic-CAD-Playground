@@ -83,3 +83,32 @@ The `magnetics` branch extends this workflow with straight-line magnetic-field i
 - `.mfield` — Radia result file
 
 Stable development milestones are preserved as Git tags. See `VERSION_HISTORY.md` and the repository tags for the complete history.
+
+
+### Geometric checkerboard
+
+For spherical coverage, the checkerboard polarity mode is geometric rather than index-based. Each even-population latitude ring alternates N/S internally, and its starting polarity is chosen from the actual nearest neighbours on the previous latitude ring. This preserves the intended N-S / S-N propagation when adjacent rings have different populations or azimuth phases.
+
+
+### v5.5 checkerboard hotfix 2
+
+- Restores spherical-shell checkerboard to the original working `(ring + magnet)` alternation.
+- Cylindrical spherical coverage now has its own checkerboard implementation.
+- For circular PMs, checkerboard mode jointly searches each ring's azimuth phase and N/S starting polarity while preserving the polar angles, ring populations and requested magnet clearance.
+- This addresses cases where individually alternating rings still formed same-pole meridian bands because their packing phases were offset.
+
+
+## Perfect N/S sphere generator
+
+The group toolbar now contains **Perfect N/S sphere**, a topology-oriented full-sphere generator.
+
+Instead of latitude rings, it uses the surface vertices of a regular cube grid projected radially onto a sphere. The original integer grid is bipartite: every grid edge changes `(i + j + k) mod 2`. The generated permanent magnets therefore alternate **N/S on every horizontal and vertical lattice connection**, including across the six projected cube-face seams.
+
+- Circular PM mode keeps one disc radius and thickness for every generated magnet.
+- Spherical-shell mode keeps one shell thickness and nominal angular cell span.
+- Sphere centre, sphere radius and requested minimum edge gap are explicit.
+- Auto density selects the densest grid subdivision that satisfies the conservative magnet-footprint + gap condition.
+- The selected PM is used as the template and becomes one body of the generated sphere.
+- All generated bodies remain normal Magnetic CAD PM objects, so save/load, Figure Studio, Radia export and Results work without a special solver path.
+
+The existing **Spherical lattice** and **Spherical coverage** operations remain unchanged.

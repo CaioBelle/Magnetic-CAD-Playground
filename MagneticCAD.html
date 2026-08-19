@@ -90,9 +90,10 @@ button,input,select{font:inherit}.app{height:100%;min-height:0;padding:7px;displ
     <button class="btn group-command" data-operation="revolve">⟳ Revolve about axis</button>
     <button class="btn group-command" data-operation="sphereLattice">◉ Spherical lattice</button>
     <button class="btn group-command" data-operation="sphereCover">◎ Spherical coverage</button>
+    <button class="btn group-command" data-operation="perfectSphere">✣ Perfect N/S sphere</button>
     <button class="btn group-command" data-operation="pattern">▦ Linear pattern</button>
     <button class="btn group-command" data-operation="mirror">◫ Mirror about plane</button>
-    <span class="grow"></span><span class="meta">Select one body, choose an operation, then configure it on the right.</span>
+    <span class="grow"></span><span class="meta">Most operations: select one body first · Perfect N/S sphere can start from parameters only.</span>
   </div>
   <div class="layout">
     <aside class="panel scene" id="scenePanel">
@@ -198,7 +199,7 @@ button,input,select{font:inherit}.app{height:100%;min-height:0;padding:7px;displ
           <label class="label">Polarity pattern</label>
           <select class="select" id="spherePolarity">
             <option value="keep">Keep source polarity</option>
-            <option value="checker">Checkerboard</option>
+            <option value="checker">Checkerboard N-S / S-N</option>
             <option value="horizontal">Alternate horizontally</option>
             <option value="vertical">Alternate vertically</option>
           </select>
@@ -264,6 +265,88 @@ button,input,select{font:inherit}.app{height:100%;min-height:0;padding:7px;displ
           </div>
 
           <div class="operation-note" id="sphereCoverExplanation">The selected magnet is the fixed top pole. Alternating topology requires an even number of intermediate rings and an even magnet count on every intermediate ring. “Optimize positions” preserves those counts; “Auto layout” regenerates an even-parity topology.</div>
+        </div>
+        
+        <div class="section operation-config" id="perfectSphereConfig" hidden>
+          <div class="sub">Perfect N/S cubed-sphere lattice</div>
+
+          <div>
+            <label class="label">Magnet form</label>
+            <select class="select" id="perfectSphereShape">
+              <option value="cylinder">Circular / cylindrical PM</option>
+              <option value="sphereSegment">Spherical-shell PM piece</option>
+            </select>
+          </div>
+
+          <label class="label">Sphere centre X / Y / Z [mm]</label>
+          <div class="grid3">
+            <input class="input" id="perfectSphereCx" type="number" value="0" step="0.5">
+            <input class="input" id="perfectSphereCy" type="number" value="0" step="0.5">
+            <input class="input" id="perfectSphereCz" type="number" value="0" step="0.5">
+          </div>
+
+          <div class="grid2">
+            <div>
+              <label class="label">Sphere radius R [mm]</label>
+              <input class="input" id="perfectSphereRadius" type="number" min="1" value="50" step="0.5">
+            </div>
+            <div>
+              <label class="label">Minimum edge gap [mm]</label>
+              <input class="input" id="perfectSphereGap" type="number" min="0" value="1" step="0.1">
+            </div>
+          </div>
+
+          <div id="perfectSphereCylinderOptions">
+            <div class="grid2">
+              <div>
+                <label class="label">Disc radius [mm]</label>
+                <input class="input" id="perfectSphereDiscRadius" type="number" min="0.1" value="7.5" step="0.1">
+              </div>
+              <div>
+                <label class="label">Disc thickness [mm]</label>
+                <input class="input" id="perfectSphereDiscHeight" type="number" min="0.1" value="4" step="0.1">
+              </div>
+            </div>
+          </div>
+
+          <div id="perfectSphereShellOptions" style="display:none">
+            <div class="grid2">
+              <div>
+                <label class="label">Shell thickness [mm]</label>
+                <input class="input" id="perfectSphereShellThickness" type="number" min="0.1" value="5" step="0.1">
+              </div>
+              <div>
+                <label class="label">Nominal cell span [deg]</label>
+                <input class="input" id="perfectSphereShellSpan" type="number" min="0.5" max="80" value="20" step="0.5">
+              </div>
+            </div>
+          </div>
+
+          <div class="grid2">
+            <div>
+              <label class="label">Magnetization [T]</label>
+              <input class="input" id="perfectSphereStrength" type="number" min="0" value="1" step="0.05">
+            </div>
+            <div>
+              <label class="label">Cube-grid divisions</label>
+              <input class="input" id="perfectSphereDivisions" type="number" min="1" max="14" value="3" step="1">
+            </div>
+          </div>
+
+          <label class="switch">
+            <input id="perfectSphereAutoDensity" type="checkbox" checked>
+            <span><strong>Auto density from magnet size + gap</strong><br><span class="meta">Choose the densest cubed-sphere grid whose minimum neighbour spacing respects the requested gap.</span></span>
+          </label>
+
+          <label class="switch"><input id="perfectSpherePreview" type="checkbox" checked><span>Show live N/S preview</span></label>
+
+          <div class="operation-summary" id="perfectSphereInfo">A true bipartite checkerboard will be generated on the complete sphere.</div>
+
+          <div class="operation-note">
+            The topology is <strong>not latitude based</strong>. Magnet centres come from the vertices of a regular cube-surface grid projected radially onto the sphere.
+            Every grid edge changes the integer parity <code>(i + j + k) mod 2</code>, therefore every horizontal / vertical lattice neighbour is guaranteed to have the opposite N/S polarity — including across cube-face seams.
+            The selected magnet is used only as the starting template and becomes one member of the generated sphere.
+          </div>
         </div>
         <div class="section operation-config" id="patternConfig" hidden>
           <div class="sub">Linear pattern</div>
@@ -722,7 +805,7 @@ function duplicateSelected(){if(!selected)return;const s=selected,c=s.userData.t
 function setView(view){const d=Math.max(175,camera.position.distanceTo(orbit.target)),target=selected?selected.getWorldPosition(new THREE.Vector3()):new THREE.Vector3(0,0,15);orbit.target.copy(target);camera.position.copy(target).add(view==='top'?new THREE.Vector3(0,0,d):view==='front'?new THREE.Vector3(0,-d,0):new THREE.Vector3(.72*d,-.82*d,.62*d));camera.lookAt(target);orbit.update()}
 function fitView(){const b=new THREE.Box3().setFromObject(selected||objectsGroup);if(b.isEmpty())return;const center=b.getCenter(new THREE.Vector3()),size=b.getSize(new THREE.Vector3()).length(),dir=camera.position.clone().sub(orbit.target).normalize();camera.position.copy(center).add(dir.multiplyScalar(Math.max(80,size*1.9)));orbit.target.copy(center)}
 function cloneCadObject(source,name){const record=cadObjectRecord(source);record.name=name;record.locked=false;record.visible=true;return createCadObject(record)}
-function updateOperationSourceSummary(){const source=operationSource&&objects.includes(operationSource)?operationSource:null;q('#operationSourceSummary').innerHTML=source?`<strong>${source.name}</strong><div class="meta">${source.userData.type==='magnet'?magnetShapeLabel(source.userData.shape)+' permanent magnet':coilShapeLabel(source.userData.shape)+' coil'} · ${source.userData.locked?'locked source':'editable body'}</div>`:'Select one magnet or coil in the viewport or feature tree.';q('#applyOperation').disabled=!source}
+function updateOperationSourceSummary(){const source=operationSource&&objects.includes(operationSource)?operationSource:null,isPerfectGenerated=operationMode==='perfectSphere'&&!source;q('#operationSourceSummary').innerHTML=source?`<strong>${source.name}</strong><div class="meta">${source.userData.type==='magnet'?magnetShapeLabel(source.userData.shape)+' permanent magnet':coilShapeLabel(source.userData.shape)+' coil'} · ${source.userData.locked?'locked source':'editable body'}</div>`:isPerfectGenerated?'<strong>Generated from parameters</strong><div class="meta">No source PM required · define centre, radius, gap and magnet geometry below.</div>':'Select one magnet or coil in the viewport or feature tree.';q('#applyOperation').disabled=!source&&!isPerfectGenerated}
 function clearOperationPreview(){
   operationPreviewGroup.traverse(item=>{
     if(item.userData.previewOwned){
@@ -907,8 +990,91 @@ function sphericalPolarOffsetQuaternion(azimuthDeg,polarDeg){
   return new THREE.Quaternion().setFromRotationMatrix(matrix).normalize()
 }
 function sphereCoverQuaternion(source,azimuthDeg,polarDeg){if(Math.abs(polarDeg)<1e-9)return source.quaternion.clone();if(Math.abs(polarDeg-180)<1e-9)return source.quaternion.clone().multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),Math.PI)).normalize();return source.quaternion.clone().multiply(sphericalPolarOffsetQuaternion(azimuthDeg,polarDeg)).normalize()}
-function sphereCoverShouldFlip(ringIndex,col,pattern){
-  if(pattern==='around')return col%2===1;if(pattern==='ring')return ringIndex%2===1;if(pattern==='checker')return (ringIndex+col)%2===1;return false
+function sphereCoverIndividualAngularDistance(angleA,azimuthA,angleB,azimuthB){
+  const a=THREE.MathUtils.degToRad(angleA),b=THREE.MathUtils.degToRad(angleB),dp=THREE.MathUtils.degToRad(azimuthA-azimuthB),c=Math.cos(a)*Math.cos(b)+Math.sin(a)*Math.sin(b)*Math.cos(dp);return Math.acos(THREE.MathUtils.clamp(c,-1,1))
+}
+function sphereCoverNearestRingIndex(ring,azimuthDeg){
+  if(ring.count<=1)return 0;
+  let i=Math.round((azimuthDeg-ring.phase)/ring.pitch)%ring.count;
+  if(i<0)i+=ring.count;
+  return i
+}
+function cylinderCheckerPairQuality(previous,current,previousOffset,currentOffset){
+  const eps=.015;let quality=0;
+  // Score both directions so unequal ring populations are treated symmetrically.
+  for(let j=0;j<current.count;j++){
+    const phi=current.phase+j*current.pitch,k=sphereCoverNearestRingIndex(previous,phi),phiPrev=previous.phase+k*previous.pitch,d=sphereCoverIndividualAngularDistance(current.angle,phi,previous.angle,phiPrev),opposite=((j+currentOffset)&1)!==((k+previousOffset)&1),w=1/(eps+d);
+    quality+=(opposite?1:-1)*w
+  }
+  for(let k=0;k<previous.count;k++){
+    const phiPrev=previous.phase+k*previous.pitch,j=sphereCoverNearestRingIndex(current,phiPrev),phi=current.phase+j*current.pitch,d=sphereCoverIndividualAngularDistance(previous.angle,phiPrev,current.angle,phi),opposite=((k+previousOffset)&1)!==((j+currentOffset)&1),w=1/(eps+d);
+    quality+=(opposite?1:-1)*w
+  }
+  return quality
+}
+function cylinderCheckerPhaseIsValid(candidate,rows,selfIndex,minAngleRad){
+  if(candidate.count>1){
+    const same=THREE.MathUtils.degToRad(sphereCoverGreatCirclePolar(candidate.angle,360/candidate.count));
+    if(same<minAngleRad-1e-8)return false
+  }
+  for(let i=0;i<rows.length;i++){
+    if(i===selfIndex)continue;
+    if(circularCoveragePairMinAngle(candidate,rows[i])<minAngleRad-1e-8)return false
+  }
+  return true
+}
+function sphereCoverOptimizeCylinderCheckerboard(rows,minAngleRad){
+  // Cylinders need more than an index checkerboard: packing can rotate each
+  // latitude ring independently. Re-optimize only AZIMUTH PHASE + N/S start,
+  // preserving polar angles, ring populations and the requested gap.
+  rows.forEach(r=>r.checkerOffset=0);
+  const multi=[];for(let i=0;i<rows.length;i++)if(rows[i].count>1)multi.push(i);
+  if(!multi.length)return rows;
+
+  // Keep the first real latitude as the polarity reference. The selected top
+  // polar piece is a deliberate single-magnet exception.
+  rows[multi[0]].checkerOffset=0;
+  for(let q=1;q<multi.length;q++){
+    const prevIndex=multi[q-1],index=multi[q],previous=rows[prevIndex],ring=rows[index],pitch=360/ring.count;
+    let best=null;
+    // Fine enough for the visual/topological problem while remaining instant.
+    // Include the current packing phase explicitly among the candidates.
+    const candidates=[ring.phase];
+    for(let k=0;k<96;k++)candidates.push(pitch*k/96);
+    for(const phaseRaw of candidates){
+      const phase=((phaseRaw%pitch)+pitch)%pitch,candidate={...ring,phase};
+      if(!cylinderCheckerPhaseIsValid(candidate,rows,index,minAngleRad))continue;
+      for(const offset of [0,1]){
+        const quality=cylinderCheckerPairQuality(previous,candidate,previous.checkerOffset||0,offset);
+        // Tiny preference for staying near the packing solution when qualities tie.
+        const dp=Math.abs(circularCoveragePhaseDistanceDeg(phase-ring.phase,pitch)),score=quality-1e-7*dp;
+        if(!best||score>best.score)best={phase,offset,score,quality}
+      }
+    }
+    if(best){ring.phase=best.phase;ring.checkerOffset=best.offset}
+    else{
+      // Fallback: never move a geometrically valid manually packed ring if no
+      // alternative phase survives the requested clearance. Pick only its N/S start.
+      const q0=cylinderCheckerPairQuality(previous,ring,previous.checkerOffset||0,0),q1=cylinderCheckerPairQuality(previous,ring,previous.checkerOffset||0,1);
+      ring.checkerOffset=q1>q0?1:0
+    }
+  }
+  // Bottom single pole remains an exception; give it the opposite state from
+  // the last real latitude for a visually continuous pole-to-pole sequence.
+  const lastMulti=multi.at(-1);for(let i=lastMulti+1;i<rows.length;i++)if(rows[i].count===1)rows[i].checkerOffset=1-(rows[lastMulti].checkerOffset||0);
+  return rows
+}
+function sphereCoverShouldFlip(ringIndex,col,pattern,rows=null,kind='shell'){
+  if(pattern==='around')return col%2===1;
+  if(pattern==='ring')return ringIndex%2===1;
+  if(pattern==='checker'){
+    // IMPORTANT: spherical-shell coverage already worked with this simple
+    // topology rule, so keep it unchanged. Cylinders use their separately
+    // optimized checkerOffset because their ring phases come from packing.
+    if(kind==='cylinder')return (col+((rows&&rows[ringIndex]?.checkerOffset)||0))%2===1;
+    return (ringIndex+col)%2===1
+  }
+  return false
 }
 function flipCoverageMagnetPolarity(o){
   if(!o||o.userData.type!=='magnet')return;
@@ -1158,7 +1324,7 @@ function sphereCoverCircularParameters(source){
   if(limit===180)rows.push({angle:180,count:1,pitch:360,phase:0,locked:true,valid:true,minDistance:Math.PI});
   // Re-check every editable row against ALL rows after phases are assigned.
   rows.forEach((r,index)=>{if(r.locked)return;const others=rows.filter((_,j)=>j!==index),cross=Math.min(...others.map(o=>circularCoveragePairMinAngle(r,o)),Infinity),sameOk=r.count<=circularCoverageMaxCount(r.angle,minAngleRad),parityValid=r.count%2===0;r.minDistance=Math.min(r.minDistance,cross);r.parityValid=parityValid;r.valid=parityValid&&sameOk&&cross>=minAngleRad-1e-8});
-  const parity=sphereCoverEditableParity(rows);return{kind:'cylinder',mode,limit,centreRadius,innerFaceRadius,gap,polarity,stagger,magnetRadius,magnetHeight,requiredDistance,minAngleRad,minAngleDeg,sphereCentre,rows,parity}
+  if(polarity==='checker')sphereCoverOptimizeCylinderCheckerboard(rows,minAngleRad);const parity=sphereCoverEditableParity(rows);return{kind:'cylinder',mode,limit,centreRadius,innerFaceRadius,gap,polarity,stagger,magnetRadius,magnetHeight,requiredDistance,minAngleRad,minAngleDeg,sphereCentre,rows,parity}
 }
 function sphereCoverParameters(source){return source.userData.shape==='cylinder'?sphereCoverCircularParameters(source):sphereCoverShellParameters(source)}
 function sphereCoverGuide(source,p){
@@ -1171,9 +1337,140 @@ function sphereCoverRenderRows(source,p){
     const editable=p.rows.filter(r=>!r.locked),manualIndex=editable.indexOf(ring),applyEdit=()=>{const manual=editable.map(r=>({angle:r.angle,count:r.count}));manual[manualIndex]={angle:+row.querySelector('.cover-angle').value||ring.angle,count:Math.max(1,Math.round(+row.querySelector('.cover-count').value||ring.count))};sphereCoverManualRows=sphereCoverNormalizeRows(manual,p.limit);sphereCoverManualKey=sphereCoverStateKey(source);updateOperationPreview()};row.querySelector('.cover-angle').onchange=applyEdit;row.querySelector('.cover-count').onchange=applyEdit;row.querySelector('.cover-remove').onclick=()=>{const manual=editable.map(r=>({angle:r.angle,count:r.count}));manual.splice(manualIndex,1);sphereCoverManualRows=manual;sphereCoverManualKey=sphereCoverStateKey(source);updateOperationPreview()};box.appendChild(row)
   })
 }
+
+const perfectSphereSpacingCache=new Map();
+function perfectSphereGrid(divisions){
+  const n=Math.max(1,Math.min(14,Math.round(divisions||1))),nodes=[],index=new Map(),
+        key=(i,j,k)=>`${i},${j},${k}`;
+  for(let i=0;i<=n;i++)for(let j=0;j<=n;j++)for(let k=0;k<=n;k++){
+    if(i!==0&&i!==n&&j!==0&&j!==n&&k!==0&&k!==n)continue;
+    const x=-1+2*i/n,y=-1+2*j/n,z=-1+2*k/n,direction=new THREE.Vector3(x,y,z).normalize(),
+          node={i,j,k,key:key(i,j,k),direction,parity:(i+j+k)&1};
+    index.set(node.key,nodes.length);nodes.push(node)
+  }
+  const edges=[];
+  nodes.forEach((node,a)=>{
+    [[1,0,0],[0,1,0],[0,0,1]].forEach(([di,dj,dk])=>{
+      const b=index.get(key(node.i+di,node.j+dj,node.k+dk));
+      if(b!==undefined)edges.push([a,b])
+    })
+  });
+  return{n,nodes,edges}
+}
+function perfectSphereMinimumUnitChord(divisions){
+  const n=Math.max(1,Math.min(14,Math.round(divisions||1)));
+  if(perfectSphereSpacingCache.has(n))return perfectSphereSpacingCache.get(n);
+  const grid=perfectSphereGrid(n);
+  let min=Infinity;
+  grid.edges.forEach(([a,b])=>{min=Math.min(min,grid.nodes[a].direction.distanceTo(grid.nodes[b].direction))});
+  perfectSphereSpacingCache.set(n,min);return min
+}
+function perfectSphereQuaternion(direction){
+  const z=direction.clone().normalize(),
+        ref=Math.abs(z.z)<.92?new THREE.Vector3(0,0,1):new THREE.Vector3(0,1,0),
+        x=new THREE.Vector3().crossVectors(ref,z).normalize(),
+        y=new THREE.Vector3().crossVectors(z,x).normalize(),
+        matrix=new THREE.Matrix4().makeBasis(x,y,z);
+  return new THREE.Quaternion().setFromRotationMatrix(matrix).normalize()
+}
+function perfectSphereParameters(){
+  const source=operationSource&&objects.includes(operationSource)?operationSource:null,
+        shape=q('#perfectSphereShape').value==='sphereSegment'?'sphereSegment':'cylinder',
+        center=new THREE.Vector3(+q('#perfectSphereCx').value||0,+q('#perfectSphereCy').value||0,+q('#perfectSphereCz').value||0),
+        radius=Math.max(1,Math.abs(+q('#perfectSphereRadius').value||50)),
+        gap=Math.max(0,+q('#perfectSphereGap').value||0),
+        strength=Math.max(0,+q('#perfectSphereStrength').value||0),
+        discRadius=Math.max(.1,Math.abs(+q('#perfectSphereDiscRadius').value||7.5)),
+        discHeight=Math.max(.1,Math.abs(+q('#perfectSphereDiscHeight').value||4)),
+        shellThickness=Math.max(.1,Math.abs(+q('#perfectSphereShellThickness').value||5)),
+        shellSpan=Math.max(.5,Math.min(80,Math.abs(+q('#perfectSphereShellSpan').value||20))),
+        autoDensity=!!q('#perfectSphereAutoDensity').checked;
+
+  // Conservative tangential footprint used only to guarantee a minimum gap.
+  // Cylinders use their diameter. A square shell patch uses its spherical diagonal.
+  const shellDiagRad=THREE.MathUtils.degToRad(shellSpan)*Math.SQRT2,
+        footprint=shape==='cylinder'
+          ?2*discRadius
+          :2*radius*Math.sin(Math.min(Math.PI*.95,shellDiagRad)/2),
+        required=footprint+gap;
+
+  let divisions=Math.max(1,Math.min(14,Math.round(+q('#perfectSphereDivisions').value||1)));
+  if(autoDensity){
+    let best=1;
+    for(let n=1;n<=14;n++){
+      const spacing=radius*perfectSphereMinimumUnitChord(n);
+      if(spacing+1e-9>=required)best=n;else break
+    }
+    divisions=best
+  }
+  const grid=perfectSphereGrid(divisions),
+        minChord=radius*perfectSphereMinimumUnitChord(divisions),
+        achievedGap=minChord-footprint,
+        valid=achievedGap>=gap-1e-7;
+
+  return{source,shape,center,radius,gap,strength,discRadius,discHeight,shellThickness,shellSpan,autoDensity,divisions,grid,footprint,minChord,achievedGap,valid}
+}
+function perfectSphereNodePose(p,node){
+  const quaternion=perfectSphereQuaternion(node.direction);
+  return{
+    quaternion,
+    position:p.shape==='cylinder'?p.center.clone().addScaledVector(node.direction,p.radius):p.center.clone()
+  }
+}
+function perfectSpherePreviewNode(p,node){
+  const pose=perfectSphereNodePose(p,node),group=new THREE.Group(),north=node.parity===0,
+        neutralMat=new THREE.MeshBasicMaterial({color:0xb8bec8,transparent:true,opacity:.18,side:THREE.DoubleSide,depthWrite:false,depthTest:false}),
+        poleMat=new THREE.MeshBasicMaterial({color:north?C.mag:C.south,transparent:true,opacity:.68,side:THREE.DoubleSide,depthWrite:false,depthTest:false});
+  group.userData={preview:true,perfectSphere:true,parity:node.parity};group.position.copy(pose.position);group.quaternion.copy(pose.quaternion);
+
+  if(p.shape==='cylinder'){
+    const body=new THREE.Mesh(cylinderGeometry(p.discRadius,p.discHeight,28),neutralMat),
+          capHeight=Math.max(.12,Math.min(.45,p.discHeight*.12)),
+          cap=new THREE.Mesh(cylinderGeometry(p.discRadius,capHeight,28),poleMat);
+    cap.position.z=p.discHeight/2-capHeight/2;
+    group.add(body,cap)
+  }else{
+    const ri=Math.max(.1,p.radius-p.shellThickness/2),ro=p.radius+p.shellThickness/2,
+          mode=north?'radial_out':'radial_in',
+          geoms=sphericalSegmentPoleGeometries(ri,ro,p.shellSpan,p.shellSpan,8,8,mode);
+    [['neutral',neutralMat],['north',new THREE.MeshBasicMaterial({color:C.mag,transparent:true,opacity:.62,side:THREE.DoubleSide,depthWrite:false,depthTest:false})],['south',new THREE.MeshBasicMaterial({color:C.south,transparent:true,opacity:.62,side:THREE.DoubleSide,depthWrite:false,depthTest:false})]].forEach(([part,mat])=>group.add(new THREE.Mesh(geoms[part],mat)))
+  }
+
+  group.traverse(item=>{item.userData={...item.userData,preview:true,previewOwned:true};item.renderOrder=1200;item.frustumCulled=false});
+  operationPreviewGroup.add(group);return group
+}
+function perfectSphereGuide(p){
+  constructionPoint(p.center,2.2);
+  // A thin line on every cubed-sphere graph edge makes the bipartite topology visible.
+  // Suppress the guide for extremely dense previews to keep the browser responsive.
+  if(p.grid.edges.length<=900){
+    p.grid.edges.forEach(([a,b])=>{
+      const pa=p.center.clone().addScaledVector(p.grid.nodes[a].direction,p.radius),
+            pb=p.center.clone().addScaledVector(p.grid.nodes[b].direction,p.radius);
+      constructionLine([pa,pb],{opacity:.16,dashed:false})
+    })
+  }
+}
+function perfectSphereConfigureMagnet(o,p,node){
+  const pose=perfectSphereNodePose(p,node),d=o.userData;
+  d.shape=p.shape;d.strength=p.strength;
+  if(p.shape==='cylinder'){
+    d.radius=p.discRadius;d.height=p.discHeight;d.cylinderSegments=Math.max(48,d.cylinderSegments||72);
+    o.position.copy(pose.position);o.quaternion.copy(pose.quaternion);
+    rebuildMagnet(o);
+    if(node.parity===1)flipCoverageMagnetPolarity(o)
+  }else{
+    d.sphereInnerRadius=Math.max(.1,p.radius-p.shellThickness/2);
+    d.sphereOuterRadius=p.radius+p.shellThickness/2;
+    d.sphereLongitudeSpan=p.shellSpan;d.sphereLatitudeSpan=p.shellSpan;
+    d.sphereSegmentsLon=Math.max(12,d.sphereSegmentsLon||12);d.sphereSegmentsLat=Math.max(12,d.sphereSegmentsLat||12);
+    d.sphereMagnetizationMode=node.parity===0?'radial_out':'radial_in';
+    o.position.copy(p.center);o.quaternion.copy(pose.quaternion);rebuildMagnet(o)
+  }
+}
 function updateOperationPreview(){
   clearOperationPreview();operationPreviewGroup.visible=true;
-  const source=operationSource&&objects.includes(operationSource)?operationSource:null;if(!source)return;
+  const source=operationSource&&objects.includes(operationSource)?operationSource:null;if(!source&&operationMode!=='perfectSphere')return;
   if(operationMode==='revolve'){
     const p=revolveParameters();q('#revolveCopies').value=p.copies;const relative=source.position.clone().sub(p.pivot),radial=relative.clone().addScaledVector(p.axis,-relative.dot(p.axis)),radius=radial.length(),isSphere=source.userData.type==='magnet'&&source.userData.shape==='sphereSegment'&&source.position.distanceTo(p.pivot)<1e-6;q('#revolveStepInfo').textContent=isSphere?('Spherical ring · original + '+p.copies+' cop'+(p.copies===1?'y':'ies')+' · angular step '+Number(p.stepDeg.toFixed(6))+'° around '+p.axisName.toUpperCase()):('Original + '+p.copies+' cop'+(p.copies===1?'y':'ies')+' = '+(p.copies+1)+' bodies · angular step '+Number(p.stepDeg.toFixed(6))+'° · path radius '+radius.toFixed(2)+' mm.');if(!q('#revolvePreview').checked)return;
     constructionAxis(p.axis,p.pivot);if(!isSphere)circularConstruction(p.axis,p.pivot,source.position,p.totalAngle);
@@ -1196,7 +1493,19 @@ function updateOperationPreview(){
     if(p.kind==='cylinder')q('#sphereCoverDiskInfo').innerHTML=`Selected top disk <strong>Ø${(2*p.magnetRadius).toFixed(2)} × ${p.magnetHeight.toFixed(2)} mm</strong> · gap ${p.gap.toFixed(2)} mm · minimum centre angle ${p.minAngleDeg.toFixed(2)}°.<br><span class="meta">Sphere centre [${p.sphereCentre.x.toFixed(2)}, ${p.sphereCentre.y.toFixed(2)}, ${p.sphereCentre.z.toFixed(2)}] mm · inner-face radius ${p.innerFaceRadius.toFixed(2)} mm${p.mode==='full'?` · opposite polar centre exactly ${(2*p.centreRadius).toFixed(2)} mm = 2R from selected`:''}</span>`;
     q('#sphereCoverStepInfo').innerHTML=`<strong>${modeLabel}</strong> · ${parity.editable.length} intermediate latitude rings · ${total} magnets total · ${copies} generated copies · <strong>${parity.valid?'even N/S parity ✓':'even N/S parity required'}</strong>${parity.oddRows.length?` · <span style="color:#ff8585">${parity.oddRows.length} odd-population ring${parity.oddRows.length===1?'':'s'}</span>`:''}${!parity.ringCountEven?` · <span style="color:#ff8585">odd number of intermediate rings</span>`:''}${invalid&&!parity.oddRows.length?` · <span style="color:#ff8585">${invalid} geometry conflict${invalid===1?'':'s'}</span>`:''}.`;
     sphereCoverRenderRows(source,p);if(!q('#sphereCoverPreview').checked)return;sphereCoverGuide(source,p);
-    p.rows.forEach((ring,ringIndex)=>{for(let i=0;i<ring.count;i++){if(ring.locked&&ring.angle<1e-6)continue;const phi=ring.phase+i*ring.pitch;if(p.kind==='cylinder'){const pose=sphereCoverCircularPose(source,p,phi,ring.angle),ghost=previewClone(source);ghost.position.copy(pose.position);ghost.quaternion.copy(pose.quaternion);operationPreviewGroup.add(ghost);ghost.updateMatrixWorld(true);if(sphereCoverShouldFlip(ringIndex,i,p.polarity))ghost.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),Math.PI)).normalize()}else{const lon=ring.lonSpan||p.sourceLonSpan,lat=ring.latSpan||p.sourceLatSpan,flip=sphereCoverShouldFlip(ringIndex,i,p.polarity);addSphericalPolePreview(source,sphereCoverQuaternion(source,phi,ring.angle),lon,lat,flip)}}})
+    p.rows.forEach((ring,ringIndex)=>{for(let i=0;i<ring.count;i++){if(ring.locked&&ring.angle<1e-6)continue;const phi=ring.phase+i*ring.pitch;if(p.kind==='cylinder'){const pose=sphereCoverCircularPose(source,p,phi,ring.angle),ghost=previewClone(source);ghost.position.copy(pose.position);ghost.quaternion.copy(pose.quaternion);operationPreviewGroup.add(ghost);ghost.updateMatrixWorld(true);if(sphereCoverShouldFlip(ringIndex,i,p.polarity,p.rows,p.kind))ghost.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),Math.PI)).normalize()}else{const lon=ring.lonSpan||p.sourceLonSpan,lat=ring.latSpan||p.sourceLatSpan,flip=sphereCoverShouldFlip(ringIndex,i,p.polarity,p.rows,p.kind);addSphericalPolePreview(source,sphereCoverQuaternion(source,phi,ring.angle),lon,lat,flip)}}})
+  }else if(operationMode==='perfectSphere'){
+    const p=perfectSphereParameters(),total=p.grid.nodes.length,
+          poleN=p.grid.nodes.filter(n=>n.parity===0).length,poleS=total-poleN;
+    q('#perfectSphereCylinderOptions').style.display=p.shape==='cylinder'?'':'none';
+    q('#perfectSphereShellOptions').style.display=p.shape==='sphereSegment'?'':'none';
+    q('#perfectSphereDivisions').disabled=p.autoDensity;
+    if(p.autoDensity)q('#perfectSphereDivisions').value=p.divisions;
+    q('#perfectSphereInfo').innerHTML=`<strong>${p.valid?'Perfect N/S topology ✓':'⚠ requested gap not achievable'}</strong> · ${p.divisions} cube-grid divisions · ${total} magnets (${poleN} N / ${poleS} S) · minimum neighbour spacing ${p.minChord.toFixed(2)} mm · conservative achieved gap ${p.achievedGap.toFixed(2)} mm.<br><span class="meta">Every one of the ${p.grid.edges.length} horizontal / vertical lattice edges connects opposite parity. ${p.autoDensity?'Density chosen automatically from the selected magnet footprint and gap.':'Manual density.'}</span>`;
+    if(!q('#perfectSpherePreview').checked)return;
+    perfectSphereGuide(p);
+    const previewLimit=900,step=Math.max(1,Math.ceil(total/previewLimit));
+    p.grid.nodes.forEach((node,index)=>{if(index%step===0)perfectSpherePreviewNode(p,node)})
   }else if(operationMode==='pattern'){
     const p=patternParameters();q('#patternCopies').value=p.copies;q('#patternStepInfo').textContent='Original + '+p.copies+' cop'+(p.copies===1?'y':'ies')+' · final displacement ['+(p.step.x*p.copies).toFixed(2)+', '+(p.step.y*p.copies).toFixed(2)+', '+(p.step.z*p.copies).toFixed(2)+'] mm.';if(!q('#patternPreview').checked)return;
     const finalPoint=source.position.clone().addScaledVector(p.step,p.copies);if(finalPoint.distanceToSquared(source.position)>1e-12){constructionSegment(source.position.clone(),finalPoint,{opacity:.22,radius:Math.max(.34,previewBoundsSize()*.0027)});constructionLine([source.position.clone(),finalPoint],{opacity:.72,dashed:true});constructionPoint(source.position,1.9);constructionPoint(finalPoint,1.9)}
@@ -1206,13 +1515,34 @@ function updateOperationPreview(){
     constructionPlane(p.plane,p.offset);const position=source.position.clone();position[p.normalAxis]=2*p.offset-source.position[p.normalAxis];addGhostAt(source,position,reflectedQuaternion(source,p.plane));constructionSegment(source.position.clone(),position,{opacity:.18,radius:Math.max(.3,previewBoundsSize()*.0023)});constructionLine([source.position.clone(),position],{opacity:.6,dashed:true})
   }
 }
-function openGroupOperation(mode){if(!selected){alert('Select one magnet or coil before opening a group operation.');return}if(mode==='sphereLattice'&&!(selected.userData.type==='magnet'&&selected.userData.shape==='sphereSegment')){alert('Spherical lattice requires a spherical-shell magnet. Select one spherical magnet first.');return}if(mode==='sphereCover'&&!(selected.userData.type==='magnet'&&['sphereSegment','cylinder'].includes(selected.userData.shape))){alert('Spherical coverage requires a spherical-shell or circular/cylindrical magnet.');return}clearOperationPreview();operationMode=mode;operationSource=selected;operationPreviousTool=currentTool;chooseTool('select');q('#normalProperties').hidden=true;q('#operationProperties').hidden=false;['revolve','sphereLattice','sphereCover','pattern','mirror'].forEach(name=>{q('#'+name+'Config').hidden=name!==mode});const labels={revolve:'Circular pattern about axis',sphereLattice:'Spherical lattice',sphereCover:'Spherical coverage',pattern:'Linear pattern',mirror:'Mirror about plane'};q('#operationTitle').textContent=labels[mode];root.querySelectorAll('.group-command').forEach(button=>button.classList.toggle('on',button.dataset.operation===mode));if(mode==='revolve')ensureVisibleRevolvePivot(operationSource);if(mode==='sphereCover')sphereCoverResetManualRows();if(mode==='sphereLattice'&&selected?.userData?.shape==='sphereSegment'){q('#spherePitchLon').value=Number((selected.userData.sphereLongitudeSpan||30).toFixed(2));q('#spherePitchLat').value=Number((selected.userData.sphereLatitudeSpan||30).toFixed(2))}if(mode==='sphereCover'&&selected?.userData?.shape==='sphereSegment'){q('#sphereCoverLatStep').value=Number((selected.userData.sphereLatitudeSpan||30).toFixed(2));q('#sphereCoverEquatorPitch').value=Number((selected.userData.sphereLongitudeSpan||30).toFixed(2))}if(mode==='sphereCover'&&selected?.userData?.shape==='cylinder'){const s=selected.getWorldScale(new THREE.Vector3()),rr=Math.max(.1,(selected.userData.radius||18)*(Math.abs(s.x)+Math.abs(s.y))/2),hh=Math.max(.1,(selected.userData.height||14)*Math.abs(s.z));q('#sphereCoverDiskMountRadius').value=Number(Math.max(2*rr,50).toFixed(2));q('#sphereCoverDiskGap').value=Number(Math.max(.2,rr*.08).toFixed(2))}updateOperationSourceSummary();updateOperationPreview()}
+function openGroupOperation(mode){if(!selected&&mode!=='perfectSphere'){alert('Select one magnet or coil before opening a group operation.');return}if(mode==='sphereLattice'&&!(selected.userData.type==='magnet'&&selected.userData.shape==='sphereSegment')){alert('Spherical lattice requires a spherical-shell magnet. Select one spherical magnet first.');return}if(mode==='sphereCover'&&!(selected.userData.type==='magnet'&&['sphereSegment','cylinder'].includes(selected.userData.shape))){alert('Spherical coverage requires a spherical-shell or circular/cylindrical magnet.');return}clearOperationPreview();operationMode=mode;operationSource=mode==='perfectSphere'?(selected?.userData?.type==='magnet'?selected:null):selected;operationPreviousTool=currentTool;chooseTool('select');q('#normalProperties').hidden=true;q('#operationProperties').hidden=false;['revolve','sphereLattice','sphereCover','perfectSphere','pattern','mirror'].forEach(name=>{q('#'+name+'Config').hidden=name!==mode});const labels={revolve:'Circular pattern about axis',sphereLattice:'Spherical lattice',sphereCover:'Spherical coverage',perfectSphere:'Perfect N/S sphere',pattern:'Linear pattern',mirror:'Mirror about plane'};q('#operationTitle').textContent=labels[mode];root.querySelectorAll('.group-command').forEach(button=>button.classList.toggle('on',button.dataset.operation===mode));if(mode==='revolve')ensureVisibleRevolvePivot(operationSource);if(mode==='perfectSphere'&&selected?.userData?.type==='magnet'){const d=selected.userData,shape=['cylinder','sphereSegment'].includes(d.shape)?d.shape:'cylinder';q('#perfectSphereShape').value=shape;q('#perfectSphereStrength').value=Number((d.strength||1).toFixed(3));if(shape==='cylinder'){q('#perfectSphereDiscRadius').value=Number((d.radius||7.5).toFixed(3));q('#perfectSphereDiscHeight').value=Number((d.height||4).toFixed(3));q('#perfectSphereRadius').value=50;q('#perfectSphereCx').value=0;q('#perfectSphereCy').value=0;q('#perfectSphereCz').value=0}else{const ri=Math.max(.1,d.sphereInnerRadius||42),ro=Math.max(ri+.1,d.sphereOuterRadius||50);q('#perfectSphereRadius').value=Number(((ri+ro)/2).toFixed(3));q('#perfectSphereShellThickness').value=Number((ro-ri).toFixed(3));q('#perfectSphereShellSpan').value=Number(Math.max(.5,Math.min(80,Math.max(d.sphereLongitudeSpan||20,d.sphereLatitudeSpan||20))).toFixed(3));q('#perfectSphereCx').value=Number(selected.position.x.toFixed(3));q('#perfectSphereCy').value=Number(selected.position.y.toFixed(3));q('#perfectSphereCz').value=Number(selected.position.z.toFixed(3))}}if(mode==='sphereCover')sphereCoverResetManualRows();if(mode==='sphereLattice'&&selected?.userData?.shape==='sphereSegment'){q('#spherePitchLon').value=Number((selected.userData.sphereLongitudeSpan||30).toFixed(2));q('#spherePitchLat').value=Number((selected.userData.sphereLatitudeSpan||30).toFixed(2))}if(mode==='sphereCover'&&selected?.userData?.shape==='sphereSegment'){q('#sphereCoverLatStep').value=Number((selected.userData.sphereLatitudeSpan||30).toFixed(2));q('#sphereCoverEquatorPitch').value=Number((selected.userData.sphereLongitudeSpan||30).toFixed(2))}if(mode==='sphereCover'&&selected?.userData?.shape==='cylinder'){const s=selected.getWorldScale(new THREE.Vector3()),rr=Math.max(.1,(selected.userData.radius||18)*(Math.abs(s.x)+Math.abs(s.y))/2),hh=Math.max(.1,(selected.userData.height||14)*Math.abs(s.z));q('#sphereCoverDiskMountRadius').value=Number(Math.max(2*rr,50).toFixed(2));q('#sphereCoverDiskGap').value=Number(Math.max(.2,rr*.08).toFixed(2))}updateOperationSourceSummary();updateOperationPreview()}
 function closeGroupOperation(){clearOperationPreview();operationMode=null;operationSource=null;q('#operationProperties').hidden=true;q('#normalProperties').hidden=false;root.querySelectorAll('.group-command').forEach(button=>button.classList.remove('on'));chooseTool(operationPreviousTool==='select'?'translate':operationPreviousTool);syncProperties()}
 function reflectedQuaternion(source,plane){const scale=plane==='xy'?new THREE.Vector3(1,1,-1):plane==='yz'?new THREE.Vector3(-1,1,1):new THREE.Vector3(1,-1,1),reflection=new THREE.Matrix4().makeScale(scale.x,scale.y,scale.z),rotation=new THREE.Matrix4().makeRotationFromQuaternion(source.quaternion),axialCorrection=new THREE.Matrix4().makeScale(1,1,-1),combined=new THREE.Matrix4().multiplyMatrices(reflection,rotation).multiply(axialCorrection);return new THREE.Quaternion().setFromRotationMatrix(combined).normalize()}
-function applyGroupOperation(){const source=operationSource&&objects.includes(operationSource)?operationSource:null;if(!source){alert('Select a valid magnet or coil first.');return}let created=[],target=source,message='';operationApplying=true;try{if(operationMode==='revolve'){const p=revolveParameters();clearOperationPreview();for(let i=1;i<=p.copies;i++){const angleDeg=p.stepDeg*i,rotation=new THREE.Quaternion().setFromAxisAngle(p.axis,THREE.MathUtils.degToRad(angleDeg)),copy=cloneCadObject(source,source.name+' · circular '+i);copy.position.copy(source.position).sub(p.pivot).applyQuaternion(rotation).add(p.pivot);copy.quaternion.copy(source.quaternion).premultiply(rotation).normalize();created.push(copy)}target=created.at(-1)||source;message='Created '+p.copies+' circular cop'+(p.copies===1?'y':'ies')+' around global '+p.axisName.toUpperCase()+' with '+Number(p.stepDeg.toFixed(6))+'° spacing.'}else if(operationMode==='sphereLattice'){if(!(source.userData.type==='magnet'&&source.userData.shape==='sphereSegment'))throw new Error('Spherical lattice requires a spherical-shell magnet.');const p=sphereLatticeParameters(),columns=2*p.colsSide+1,rows=2*p.rowsSide+1;clearOperationPreview();for(let row=-p.rowsSide;row<=p.rowsSide;row++)for(let col=-p.colsSide;col<=p.colsSide;col++){if(col===0&&row===0)continue;const copy=cloneCadObject(source,source.name+` · sphere ${col>=0?'+':''}${col},${row>=0?'+':''}${row}`);copy.position.copy(source.position);copy.quaternion.copy(sphericalLatticeQuaternion(source,col,row,p));if(sphericalLatticeShouldFlip(col,row,p.polarity))flipSphericalMagnetPolarity(copy);created.push(copy)}target=created.at(-1)||source;message=`Created ${created.length} spherical-lattice copies · ${columns} × ${rows} bodies including source · ${p.pitchLon.toFixed(2)}° × ${p.pitchLat.toFixed(2)}° pitch${p.polarity==='keep'?'':` · ${p.polarity} polarity`}.`}else if(operationMode==='sphereCover'){
+function applyGroupOperation(){const source=operationSource&&objects.includes(operationSource)?operationSource:null;if(!source&&operationMode!=='perfectSphere'){alert('Select a valid magnet or coil first.');return}let created=[],target=source,message='';operationApplying=true;try{if(operationMode==='revolve'){const p=revolveParameters();clearOperationPreview();for(let i=1;i<=p.copies;i++){const angleDeg=p.stepDeg*i,rotation=new THREE.Quaternion().setFromAxisAngle(p.axis,THREE.MathUtils.degToRad(angleDeg)),copy=cloneCadObject(source,source.name+' · circular '+i);copy.position.copy(source.position).sub(p.pivot).applyQuaternion(rotation).add(p.pivot);copy.quaternion.copy(source.quaternion).premultiply(rotation).normalize();created.push(copy)}target=created.at(-1)||source;message='Created '+p.copies+' circular cop'+(p.copies===1?'y':'ies')+' around global '+p.axisName.toUpperCase()+' with '+Number(p.stepDeg.toFixed(6))+'° spacing.'}else if(operationMode==='sphereLattice'){if(!(source.userData.type==='magnet'&&source.userData.shape==='sphereSegment'))throw new Error('Spherical lattice requires a spherical-shell magnet.');const p=sphereLatticeParameters(),columns=2*p.colsSide+1,rows=2*p.rowsSide+1;clearOperationPreview();for(let row=-p.rowsSide;row<=p.rowsSide;row++)for(let col=-p.colsSide;col<=p.colsSide;col++){if(col===0&&row===0)continue;const copy=cloneCadObject(source,source.name+` · sphere ${col>=0?'+':''}${col},${row>=0?'+':''}${row}`);copy.position.copy(source.position);copy.quaternion.copy(sphericalLatticeQuaternion(source,col,row,p));if(sphericalLatticeShouldFlip(col,row,p.polarity))flipSphericalMagnetPolarity(copy);created.push(copy)}target=created.at(-1)||source;message=`Created ${created.length} spherical-lattice copies · ${columns} × ${rows} bodies including source · ${p.pitchLon.toFixed(2)}° × ${p.pitchLat.toFixed(2)}° pitch${p.polarity==='keep'?'':` · ${p.polarity} polarity`}.`}else if(operationMode==='sphereCover'){
   if(!(source.userData.type==='magnet'&&['sphereSegment','cylinder'].includes(source.userData.shape)))throw new Error('Spherical coverage requires a spherical-shell or circular/cylindrical magnet.');
   const p=sphereCoverParameters(source),invalid=p.rows.filter(r=>r.valid===false),parity=p.parity||sphereCoverEditableParity(p.rows);if(parity.oddRows.length)throw new Error('Every intermediate latitude ring must contain an even number of magnets so N/S alternation closes around the ring.');if(!parity.ringCountEven)throw new Error('The number of intermediate latitude rings must be even so the N/S sequence propagates consistently between the polar pieces.');if(invalid.length)throw new Error(`Fix ${invalid.length} conflicting coverage ring${invalid.length===1?'':'s'} before applying.`);clearOperationPreview();
-  p.rows.forEach((ring,ringIndex)=>{if(ring.locked&&ring.angle<1e-6)return;for(let i=0;i<ring.count;i++){const phi=ring.phase+i*ring.pitch,copy=cloneCadObject(source,source.name+` · polar ${Number(ring.angle.toFixed(1))}° · ${i+1}`);if(p.kind==='cylinder'){const pose=sphereCoverCircularPose(source,p,phi,ring.angle);copy.position.copy(pose.position);copy.quaternion.copy(pose.quaternion)}else{copy.quaternion.copy(sphereCoverQuaternion(source,phi,ring.angle));if(p.autoFit&&!ring.locked){copy.userData.sphereLongitudeSpan=ring.lonSpan||p.sourceLonSpan;copy.userData.sphereLatitudeSpan=ring.latSpan||p.sourceLatSpan;rebuildMagnet(copy)}}if(sphereCoverShouldFlip(ringIndex,i,p.polarity))flipCoverageMagnetPolarity(copy);created.push(copy)}});target=source;message=`Polar spherical coverage created ${created.length} copies over ${p.rows.length} polar levels${p.kind==='cylinder'?` · same-size circular magnets · gap ${p.gap.toFixed(2)} mm`:''}.`
+  p.rows.forEach((ring,ringIndex)=>{if(ring.locked&&ring.angle<1e-6)return;for(let i=0;i<ring.count;i++){const phi=ring.phase+i*ring.pitch,copy=cloneCadObject(source,source.name+` · polar ${Number(ring.angle.toFixed(1))}° · ${i+1}`);if(p.kind==='cylinder'){const pose=sphereCoverCircularPose(source,p,phi,ring.angle);copy.position.copy(pose.position);copy.quaternion.copy(pose.quaternion)}else{copy.quaternion.copy(sphereCoverQuaternion(source,phi,ring.angle));if(p.autoFit&&!ring.locked){copy.userData.sphereLongitudeSpan=ring.lonSpan||p.sourceLonSpan;copy.userData.sphereLatitudeSpan=ring.latSpan||p.sourceLatSpan;rebuildMagnet(copy)}}if(sphereCoverShouldFlip(ringIndex,i,p.polarity,p.rows,p.kind))flipCoverageMagnetPolarity(copy);created.push(copy)}});target=source;message=`Polar spherical coverage created ${created.length} copies over ${p.rows.length} polar levels${p.kind==='cylinder'?` · same-size circular magnets · gap ${p.gap.toFixed(2)} mm`:''}.`
+}else if(operationMode==='perfectSphere'){
+  const p=perfectSphereParameters();
+  if(!p.valid)throw new Error(`The requested minimum gap cannot be achieved with ${p.divisions} cube-grid divisions. Reduce density / magnet size or increase sphere radius.`);
+  clearOperationPreview();
+
+  // Preserve the old template workflow when a PM is selected.
+  // Otherwise create node #0 directly from the Perfect N/S sphere parameters.
+  const first=p.grid.nodes[0],
+        firstBody=source&&source.userData.type==='magnet'?source:createMagnet('Perfect sphere PM 1',p.shape);
+  perfectSphereConfigureMagnet(firstBody,p,first);
+  firstBody.name='Perfect sphere PM 1';
+  if(!source)created.push(firstBody);
+
+  for(let idx=1;idx<p.grid.nodes.length;idx++){
+    const node=p.grid.nodes[idx],copy=cloneCadObject(firstBody,`Perfect sphere PM ${idx+1}`);
+    // cloneCadObject inherits node #0 polarity, then this function sets the exact node polarity.
+    perfectSphereConfigureMagnet(copy,p,node);
+    created.push(copy)
+  }
+  target=firstBody;
+  message=`Perfect N/S cubed sphere created · ${p.grid.nodes.length} magnets · ${p.divisions} divisions · minimum gap ${p.achievedGap.toFixed(2)} mm · exact opposite polarity on every lattice edge.`
 }else if(operationMode==='pattern'){const p=patternParameters();for(let i=1;i<=p.copies;i++){const copy=cloneCadObject(source,source.name+' · pattern '+i);copy.position.copy(source.position).addScaledVector(p.step,i);copy.quaternion.copy(source.quaternion);created.push(copy)}target=created.at(-1)||source;message='Created '+p.copies+' patterned cop'+(p.copies===1?'y':'ies')+' of '+source.name+'.'}else if(operationMode==='mirror'){const p=mirrorParameters();if(!p.makeCopy&&source.userData.locked)throw new Error('Unlock the body or enable “Create a mirrored copy”.');target=p.makeCopy?cloneCadObject(source,source.name+' · mirror '+p.plane.toUpperCase()):source;target.position.copy(source.position);target.position[p.normalAxis]=2*p.offset-source.position[p.normalAxis];target.quaternion.copy(reflectedQuaternion(source,p.plane));created=p.makeCopy?[target]:[];message='Mirrored '+source.name+' about '+p.plane.toUpperCase()+' at '+p.offset+' mm.'}else throw new Error('Choose a group operation.')}catch(error){operationApplying=false;alert(error.message);return}operationApplying=false;clearOperationPreview();operationMode=null;operationSource=null;q('#operationProperties').hidden=true;q('#normalProperties').hidden=false;root.querySelectorAll('.group-command').forEach(button=>button.classList.remove('on'));selectObject(target);chooseTool(operationPreviousTool==='select'?'translate':operationPreviousTool);renderTree();schedule();fitExportBox();q('#status').textContent='Operation applied · '+message;commitCadHistory('Apply group operation')}
 
 const CAD_PROJECT_FORMAT='MagneticCADProject';
@@ -2567,7 +2897,7 @@ q('#groupBarToggle').onclick=()=>{const bar=q('#groupToolbar'),opening=bar.hidde
   sphereCoverManualRows=sphereCoverNormalizeRows(manual,limit);
   sphereCoverManualKey=sphereCoverStateKey(source);
   updateOperationPreview()
-};['#revolveAxis','#revolveAngle','#revolveCopies','#revolvePx','#revolvePy','#revolvePz','#revolvePreview','#sphereColsSide','#sphereRowsSide','#spherePitchLon','#spherePitchLat','#spherePolarity','#sphereLatticePreview','#sphereCoverMode','#sphereCoverPoleClearance','#sphereCoverLatStep','#sphereCoverEquatorPitch','#sphereCoverFill','#sphereCoverAutoFit','#sphereCoverDiskMountRadius','#sphereCoverDiskGap','#sphereCoverPolarity','#sphereCoverStagger','#sphereCoverPreview','#patternCopies','#patternDx','#patternDy','#patternDz','#patternPreview','#mirrorPlane','#mirrorOffset','#mirrorCopy','#mirrorPreview'].forEach(id=>{q(id).addEventListener('input',updateOperationPreview);q(id).addEventListener('change',updateOperationPreview)});
+};['#revolveAxis','#revolveAngle','#revolveCopies','#revolvePx','#revolvePy','#revolvePz','#revolvePreview','#sphereColsSide','#sphereRowsSide','#spherePitchLon','#spherePitchLat','#spherePolarity','#sphereLatticePreview','#sphereCoverMode','#sphereCoverPoleClearance','#sphereCoverLatStep','#sphereCoverEquatorPitch','#sphereCoverFill','#sphereCoverAutoFit','#sphereCoverDiskMountRadius','#sphereCoverDiskGap','#sphereCoverPolarity','#sphereCoverStagger','#sphereCoverPreview','#perfectSphereShape','#perfectSphereCx','#perfectSphereCy','#perfectSphereCz','#perfectSphereRadius','#perfectSphereGap','#perfectSphereDiscRadius','#perfectSphereDiscHeight','#perfectSphereShellThickness','#perfectSphereShellSpan','#perfectSphereStrength','#perfectSphereDivisions','#perfectSphereAutoDensity','#perfectSpherePreview','#patternCopies','#patternDx','#patternDy','#patternDz','#patternPreview','#mirrorPlane','#mirrorOffset','#mirrorCopy','#mirrorPreview'].forEach(id=>{q(id).addEventListener('input',updateOperationPreview);q(id).addEventListener('change',updateOperationPreview)});
 q('#addMagnet').onclick=()=>{const shape=q('#newMagnetShape').value,o=createMagnet(null,shape);o.position.set(-20+objects.length*4,0,25);chooseTool('translate');commitCadHistory('Add '+magnetShapeLabel(shape).toLowerCase()+' magnet')};q('#addCoil').onclick=()=>{const shape=q('#newCoilShape').value,o=createCoil(shape);o.position.set(20+objects.length*4,0,0);chooseTool('translate');commitCadHistory('Add '+coilShapeLabel(shape).toLowerCase()+' coil')};q('#selectTool').onclick=()=>chooseTool('select');q('#moveTool').onclick=()=>chooseTool('translate');q('#rotateTool').onclick=()=>chooseTool('rotate');q('#resizeTool').onclick=()=>chooseTool('scale');q('#deleteTool').onclick=deleteSelected;q('#duplicate').onclick=duplicateSelected;
 q('#gridToggle').onchange=e=>{grid.visible=e.target.checked;commitCadHistory('Change display')};q('#snapToggle').onchange=e=>{transform.setTranslationSnap(e.target.checked?5:null);transform.setRotationSnap(e.target.checked?THREE.MathUtils.degToRad(15):null);transform.setScaleSnap(e.target.checked?.1:null);commitCadHistory('Change snapping')};['#currentArrowsToggle','#visualMode','#fieldToggle','#fieldMode','#fieldPlane','#fieldDensity','#forcesToggle','#forceComponent','#torqueToggle','#torqueComponent'].forEach(id=>q(id).onchange=()=>{schedule();commitCadHistory('Change display')});root.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>setView(b.dataset.view));
 q('#objectName').onchange=e=>{if(selected){selected.name=e.target.value||selected.name;renderTree();selectObject(selected);commitCadHistory('Rename body')}};q('#lockProperty').onchange=e=>{if(selected)setLocked(selected,e.target.checked)};root.querySelectorAll('.transform-value').forEach(input=>input.onchange=()=>{if(!selected||selected.userData.locked)return;selected.position.set(+q('#px').value||0,+q('#py').value||0,+q('#pz').value||0);selected.rotation.set(THREE.MathUtils.degToRad(+q('#rx').value||0),THREE.MathUtils.degToRad(+q('#ry').value||0),THREE.MathUtils.degToRad(+q('#rz').value||0));selectionBox.update();schedule();commitCadHistory('Transform body')});root.querySelectorAll('.magnet-dimension').forEach(input=>input.onchange=()=>{if(!selected||selected.userData.type!=='magnet')return;selected.userData.dimensions={x:Math.max(1,+q('#mx').value),y:Math.max(1,+q('#my').value),z:Math.max(1,+q('#mz').value)};rebuildMagnet(selected);selectionBox.update();renderTree();schedule();commitCadHistory('Resize magnet')});root.querySelectorAll('.cylinder-magnet-geometry').forEach(input=>input.onchange=()=>{if(!selected||selected.userData.type!=='magnet')return;selected.userData.radius=Math.max(.1,+q('#magnetRadius').value||18);selected.userData.height=Math.max(.1,+q('#magnetHeight').value||14);rebuildMagnet(selected);selectionBox.update();renderTree();schedule();commitCadHistory('Resize cylindrical magnet')});function updateSphericalMagnet(){if(!selected||selected.userData.type!=='magnet')return;const d=selected.userData,ri=Math.max(.1,+q('#sphereInnerRadius').value||42),thickness=Math.max(.1,+q('#sphereThickness').value||8),ro=ri+thickness;d.sphereInnerRadius=ri;d.sphereOuterRadius=ro;d.sphereLongitudeSpan=Math.max(.5,Math.min(170,+q('#sphereLongitudeSpan').value||30));d.sphereLatitudeSpan=Math.max(.5,Math.min(170,+q('#sphereLatitudeSpan').value||30));d.sphereMagnetizationMode=['parallel','parallel_reverse','radial_out','radial_in'].includes(q('#sphereMagnetizationMode').value)?q('#sphereMagnetizationMode').value:'parallel';rebuildMagnet(selected);syncProperties();selectionBox.update();renderTree();schedule();commitCadHistory('Edit spherical magnet')}root.querySelectorAll('.spherical-magnet-geometry').forEach(input=>input.onchange=updateSphericalMagnet);q('#sphereMagnetizationMode').onchange=updateSphericalMagnet;q('#magnetShape').onchange=e=>{if(!selected||selected.userData.type!=='magnet')return;selected.userData.shape=e.target.value==='cylinder'?'cylinder':e.target.value==='sphereSegment'?'sphereSegment':'cuboid';rebuildMagnet(selected);syncProperties();renderTree();selectionBox.update();schedule();commitCadHistory('Change magnet shape')};
