@@ -112,3 +112,81 @@ Instead of latitude rings, it uses the surface vertices of a regular cube grid p
 - All generated bodies remain normal Magnetic CAD PM objects, so save/load, Figure Studio, Radia export and Results work without a special solver path.
 
 The existing **Spherical lattice** and **Spherical coverage** operations remain unchanged.
+
+## Figure Studio force-arrow anchoring
+
+- Figure Studio force arrows support an optional custom global X/Y/Z anchor point, independently of the CAD load calculation.
+
+- Figure Studio legend titles automatically wrap to multiple lines when they exceed the legend box width.
+
+
+### Figure Studio — racetrack force explanations
+
+- Racetrack coils can optionally show the force contribution of each straight active segment together with their vector resultant `Fres`.
+- The two active-segment contributions use the same lightweight CAD field model and a thin-wire `I dℓ × B` line integration. Curved returns are intentionally excluded from this explanatory decomposition.
+- Every force/torque arrow can have an editable **Legend name**. A custom arrow colour or custom legend name automatically adds that individual arrow to the legend; racetrack segment-force arrows are listed automatically when the decomposition is enabled.
+- Cuboid PM side views now colour visible top/bottom pole boundary edges with the selected N/S colours, making the pole orientation readable even when the pole faces themselves are edge-on.
+
+
+### Figure Studio — legend sizing and load-row replacement
+
+- A custom colour or custom legend name on a main force/torque arrow now **replaces** that arrow's default legend identity. The default `F…` / `M…` row remains only when at least one visible main arrow still uses the global legend style.
+- Racetrack active-segment contributions remain separate rows because they represent genuinely different force vectors.
+- Legend sizing is split into **Horizontal size** and **Vertical size**. Horizontal size widens the legend independently for long labels; vertical size controls text/symbol size, row spacing and total height.
+
+
+### Figure Studio — individual coil legend entries
+
+- Recolouring an individual coil now adds that coil to the legend using its individual colour.
+- Each selected coil has an editable **Legend name**. Until one is entered, the CAD object name is used for its individual legend row.
+- The generic **Coil** row remains while at least one visible coil has no explicit legend name. Once every visible coil has a legend name, the generic row disappears and only the named coil entries remain.
+- **Use global style for this object** removes the individual coil legend identity together with the other object overrides.
+
+### Radia script filename
+
+The generated Python solver now follows the `.mfield` result basename. For example, `motor_test.mfield` generates `motor_test.py`.
+
+### Figure Studio view-state persistence
+
+- Figure Studio now remembers its working state when you leave and come back later in the same CAD session.
+- The state is stored **per Figure Studio view** (`Top`, `Front`, `Right`, and each `Isometric` variant).
+- Each saved view keeps its own global styling, legend settings, object visibility inside Figure Studio, manual drawing order, individual object/load overrides, zoom/pan view box, and export settings.
+- CAD project files (`.magcad`) now store the Figure Studio state as well, so reopening a saved project restores those view-specific figure settings.
+
+
+### MagCAD configuration panel
+
+The duplicated Top / Front / Iso buttons were removed from the far-right top toolbar; the view controls remain in the viewport toolbar. The new **Config** button opens a standard right-side MagCAD panel.
+
+Configurable CAD visualization parameters now include:
+- current-arrow count for annular, racetrack, line, and solenoid coils;
+- current-arrow visual size;
+- plane and volume sample counts behind Sparse / Dense / Very dense / Ultra dense quick-field presets;
+- quick-field plane width;
+- relative field threshold below which arrows are hidden;
+- quick-field arrow size.
+
+These settings affect only the interactive conceptual CAD preview. Radia solve discretization remains independent. The configuration is stored in `.magcad` project files.
+
+- Figure Studio legend titles now support longer text and manual multi-line editing through a textarea. Explicit line breaks are preserved and additional wrapping still happens automatically when needed.
+
+
+### Figure Studio persistence — registry v2
+
+Figure Studio persistence was rebuilt to preserve the original clean drawing behaviour while keeping save/restore support:
+
+- **Overall config is global** across Top / Front / Right / every Isometric view: style preset, line width, fill opacity, global colours, racetrack default, background/transparency and export dimensions/PNG scale.
+- **Per-view state** stores only view-specific content: Figure Studio visibility, automatic/manual layer order, individual object/load overrides, force anchors, legend state, field slice controls, and zoom/pan view box.
+- A newly opened view starts with **automatic depth ordering** and does not inherit another projection's manual layer order or individual styling.
+- Closing and reopening Figure Studio keeps the current state in-session; `.magcad` saves the global config and every per-view state.
+- Persistent CAD object IDs are now uniqueness-checked. Pattern/group clones and merged projects receive fresh IDs, preventing Figure Studio style/layer registry collisions.
+- Older Figure Studio registry-v1 project data is migrated automatically to the new global + per-view structure.
+
+### Figure Studio registry stability pass
+
+Figure Studio persistence is split into two layers:
+
+- **Overall config (shared by every view):** style preset, visible-line thickness, fill opacity, default current-arrow count, default racetrack representation, all global colours, background/transparency, export width/height, and PNG scale.
+- **Per-view registry:** Top, Front, Right, and each Isometric variant independently keep content visibility, legend, individual object/load styling, custom force anchors, manual layer order, zoom/pan, and field-view presentation.
+
+The renderer itself is kept aligned with the pre-registry Figure Studio implementation. New views start in automatic depth ordering. Legacy registry-v1 projects are migrated with automatic depth ordering as a safety repair, while their useful colours, visibility, legends, anchors, and individual styling are retained. Persistent object IDs are unique across clones, patterns, imports, and project reloads.

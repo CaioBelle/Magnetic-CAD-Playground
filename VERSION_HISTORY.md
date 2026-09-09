@@ -32,3 +32,21 @@
 - **v5.5** — Spherical PM geometry, spherical coverage/lattice, PM-fidelity Radia export, parity-aware N/S layouts, and spherical Figure Studio / CAD visualization
 
 - **v5.5 topology extension** — Perfect N/S cubed-sphere checkerboard generator
+
+- **v5.5 Figure Studio update** — custom force-arrow anchoring by global X/Y/Z coordinates
+
+- **v5.5 Figure Studio extension** — racetrack active-segment force contributions, per-load legend names, and cuboid pole-edge colours
+
+- **v5.5 Figure Studio refinement** — custom load legend rows replace defaults; independent legend horizontal/vertical sizing
+
+- **v5.5 refinement** — per-coil Figure Studio legend names/colours; Radia `.py` filename follows `.mfield` basename
+
+- **v5.5 refinement** — Figure Studio view-state persistence in-session and inside `.magcad` project files; state saved separately for top/front/right/isometric views and iso variants
+
+- **v5.5 refinement** — right-side MagCAD Config panel for current-arrow and quick-field display/performance settings; config saved in `.magcad`
+
+- **v5.5 refinement** — Figure Studio legend title control upgraded to a multiline editor; longer titles and manual line breaks are now supported
+
+- **v5.5 stability refinement** — Figure Studio registry v2: shared overall configuration, clean per-view state, automatic-depth restoration for new views, unique persistent object IDs, and v1 project migration
+
+- **v5.5 stability pass** — repaired Figure Studio startup syntax; separated shared Overall config from per-view registry; healed legacy registry layer order; preserved pre-registry rendering behaviour
