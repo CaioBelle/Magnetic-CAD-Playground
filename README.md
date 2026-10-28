@@ -1,46 +1,114 @@
-# MagCAD v6.4.0-rc.1
+# Magnetic CAD Playground
 
-Release candidate prepared on 28 October 2026. Open `MagneticCAD.html` in your desktop browser, or double-click `Open_MagCAD.cmd` on Windows. Three.js 0.180.0 is loaded from jsDelivr; internet access is required. Python/Radia is not bundled.
+A lightweight browser CAD for building magnetic systems with permanent magnets and coils, exploring their fields and forces, and creating clear technical figures.
 
-The `.magcad` JSON schema remains version 6. The `.mfield` binary format remains MCFIELD1: existing solved files do not need regeneration for the viewer features.
+I started **Magnetic CAD Playground (MagCAD)** in the context of my thesis, as a practical way to sketch magnetic arrangements, compare ideas and explain how they work. I hope it can also be useful to anyone who wants to brainstorm a magnetic design, teach a concept, or simply understand magnetism a little better.
 
-## CAD and selection
+The idea is simple: build a scene visually, explore it, and take it further with a Radia calculation when you need numerical results.
 
-- Ctrl/Cmd-click toggles selection. In the feature tree, Shift-click selects a range; Ctrl/Cmd+Shift-click adds that range to the existing selection.
-- Multiselections share applicable property fields. Mixed values remain unchanged until that field is edited. Move/rotate uses an editable common pivot.
-- Revolve about axis acts on **one body**, with alternating N/S and simple Halbach options. The simple Halbach mode is intended for cubes; it physically rotates bodies, so other shapes can change footprint.
-- Circular pattern acts on a **multiselection**, copying the entire structure with its relative orientations and polarities. Linear pattern supports either one body or a selection.
-- CAD and Figure Studio drawing subdivisions are configured independently of Radia discretization.
-- Balanced N/S sphere spacing and thickness-aware cylinder clearance are retained. Alternating polarity does not imply identical gaps.
+**Project:** [CaioBelle/Magnetic-CAD-Playground](https://github.com/CaioBelle/Magnetic-CAD-Playground)
 
-## Results viewer
+## Getting started
 
-The left sidebar contains configuration first, followed by a collapsed Objects list.
+1. Download the repository using **Code → Download ZIP**, or clone it.
+2. Extract the files.
+3. Open `MagneticCAD.html` in a modern desktop browser, such as Chrome or Edge.
 
-**Arrows / Streamlines:** arrows display the selected component; streamlines always follow the full saved B vector. Streamline colour represents |B| in teslas, using a linear scale over the displayed lines. Density is Sparse, Medium or Dense. Lines are integrated through interpolated saved vectors, with finite tracing limits; their density is not a quantitative flux measure.
+There is no application installation or build step. The main build loads Three.js from a CDN, so an internet connection is needed to load those modules. Python and Radia are only needed if you want to run the exported calculations.
 
-**Field coordinates:** Cartesian Bx/By/Bz, cylindrical Br/Btheta/Bz or spherical Br/Btheta/Bphi. Cylindrical theta is azimuth about global Z, from +X toward +Y. Spherical theta is the polar angle from +Z; phi is azimuth. A custom coordinate origin is available. Undefined components on the axis/origin are omitted.
+For a first experiment, add a permanent magnet and a racetrack coil. Change their positions, the magnet polarity and the coil current, then use the quick field and force displays to explore the arrangement. Save your work as a `.magcad` project.
 
-**1D profiles:** choose a line or circumference in the current XY/XZ/YZ slice. Circle centre and radius use millimetres. Angle starts along the slice's horizontal axis and increases toward its vertical axis. Saved Cartesian vectors are interpolated before component projection; points outside the saved volume appear as gaps.
+## What you can do
 
-**Sampling bounds:** the quick-field width sets plane span and cube side about the global origin. The Radia solve dialog has its own centre/dimensions and matching preview outline.
+- **Build magnetic scenes:** cuboid, cylindrical/disc and spherical-shell permanent magnets; annular, racetrack, straight-line and solenoid coils.
+- **Arrange and edit objects:** move, rotate, resize, mirror, undo/redo, and edit common properties across a multiselection.
+- **Create repeated structures:** linear patterns, single-body revolve, circular patterns of whole selections, and spherical layouts. Revolve includes alternating N/S and simple Halbach options; the latter is intended for cubes because it rotates the bodies themselves.
+- **Explore fields and loads:** quick CAD previews, Radia export, and a Results viewer for solved fields, coil forces and torques.
+- **Prepare figures:** Figure Studio provides technical drawings with editable colours, layers, arrows, legends and SVG/PNG export.
+- **Keep working:** save, reopen and merge `.magcad` projects, including CAD configuration and Figure Studio settings.
+
+### Selecting and repeating objects
+
+Use **Ctrl/Cmd-click** to add or remove objects from a selection. In the feature tree, **Shift-click** selects a range, and **Ctrl/Cmd+Shift-click** adds that range to the existing selection. The right panel shows the properties shared by the selected objects.
+
+**Revolve about axis** works on one body. **Circular pattern** repeats an entire multiselection while preserving the arrangement within each copy. **Linear pattern** supports both.
+
+### Spherical arrangements
+
+Spherical lattice, spherical coverage and the N/S sphere generator help build arrangements of discs or spherical-shell segments. The N/S sphere uses a cube-based lattice mapped onto a sphere, with alternating polarity along its lattice connections. Spacing varies across the sphere; balanced spacing and thickness-aware disc clearance help control the layout.
+
+## Radia: the calculation engine
+
+[Radia](https://github.com/ochubar/Radia) is a 3D magnetostatics code developed at the **European Synchrotron Radiation Facility (ESRF)** by Oleg Chubar, Pascal Elleaume and Joël Chavanne. It was developed for magnetic insertion devices such as undulators and wigglers, and supports calculations involving permanent magnets, currents and magnetic materials. ESRF directs users to Oleg Chubar's repository for its continued maintenance and distribution.
+
+MagCAD uses Radia through its **Python interface**. MagCAD builds the scene and generates the script; Radia performs the magnetic-field calculation outside the browser.
+
+- [Radia source, downloads and installation information](https://github.com/ochubar/Radia)
+- [ESRF Radia overview](https://www.esrf.fr/home/Accelerators/instrumentation--equipment/Software/Radia.html)
+- [ESRF Radia documentation](https://www.esrf.fr/home/Accelerators/instrumentation--equipment/Software/Radia/Documentation.html)
+
+### From CAD to calculated results
+
+1. Build and save your magnetic scene.
+2. Click **Radia solve…**.
+3. Set the field sampling box, resolution and calculation options.
+4. Choose an output name and download the generated Python script. For example, `motor_test.mfield` produces `motor_test.py`.
+5. Run the script in a Python environment with **NumPy** and **Radia** installed:
+
+   ```sh
+   python motor_test.py
+   ```
+
+6. Open the resulting `.mfield` file in MagCAD's **Results viewer**.
+
+Cuboid and cylindrical magnets use Radia's native primitives. Spherical-shell magnets are approximated by convex polyhedra; their discretization can be refined for more accurate calculations. Display subdivisions and Radia discretization are separate settings.
+
+## Exploring results
+
+The Results viewer combines the exported source geometry with the sampled field and calculated coil loads. You can:
+
+- Display field arrows or **streamlines coloured by field magnitude**.
+- Inspect Cartesian, cylindrical or spherical field components.
+- View field slices and plot profiles along a straight line or a circumference.
+- Show or hide objects and inspect force and torque results.
+
+Streamlines follow the full magnetic-field vector interpolated from the saved grid. Their detail depends on the sampling resolution; changing the display does not run a new solve. Existing compatible `.mfield` files can be reused without regeneration.
 
 ## Figure Studio
 
-Overall style remains shared across views; per-view colours, legend, custom force anchors, visibility, layers and view box remain independent and save in `.magcad`. Imported `.mfield` data remains external. Opening a replacement CAD project clears the prior project's imported Figure Studio field; import the appropriate field again. Merging and undo do not intentionally discard it.
+Figure Studio turns the scene into a schematic or technical illustration for a report, presentation or discussion.
 
-## Validation
+Use top, front, right or isometric views; adjust object colours, visibility and drawing order; add current, magnetization, force and torque arrows; and give legend entries your own names. Force arrows can use custom XYZ anchors for clearer placement. Racetrack coils can also show the contributions of their two straight active segments and their sum.
 
-See `QA_REPORT.md` for evidence and limits, and `LOCAL_SMOKE_TEST.md` before promoting this candidate to a stable tag. No live browser/WebGL run or fresh Radia solve was performed during this audit. The earlier racetrack near-PM force-arrow report remains unresolved: Figure Studio leg forces use the conceptual CAD field, not the imported Radia field.
+**Overall config** shares the general style across views. Each view remembers its own visibility, individual styles, legend, layers, force anchors and framing. These settings are saved in the `.magcad` project. Export the finished figure as **SVG** for further editing or **PNG** for direct use.
 
-Run the offline suite with Node.js (tested on Node 24):
+## Understanding the physics
 
-```sh
-node qa/run.cjs
-python -m py_compile qa/generated_solver.py
-python qa/check_clearance.py
-```
+The quick CAD field and load displays use simplified models for interactive exploration. Near magnet surfaces in particular, use the Radia workflow to assess quantitative results.
 
-The last command requires NumPy and SciPy. Static analysis uses Acorn bundled inside Node when available; otherwise install `acorn` for that check. The tests use lightweight math/DOM/scene fixtures and do not replace browser or solver validation.
+In MagCAD's current exported workflow:
 
-`COMMIT_MESSAGE.txt` contains the proposed Git commit message. No Git commit, push or publication has been performed.
+- Permanent magnets generate the calculated field.
+- Coil forces and torques are obtained by numerical integration of `J × B` over the conductor volume.
+- Coil self-fields and coil-to-coil forces are omitted.
+- Figure Studio's racetrack decomposition uses the quick CAD field and includes only the two straight active segments, excluding the curved returns.
+
+Radia itself supports more physics than MagCAD currently exposes. For numerical work, check the geometry, units, magnetization and current directions, then refine the relevant discretization to check convergence.
+
+## Files
+
+| File | Purpose |
+|---|---|
+| `MagneticCAD.html` | Browser application |
+| `.magcad` | Editable CAD project and saved figure settings |
+| `.py` | Generated Radia calculation script |
+| `.mfield` | Sampled field, exported geometry and calculated loads |
+| `.svg` / `.png` | Exported Figure Studio illustration |
+
+Imported `.mfield` datasets remain separate from `.magcad` projects. Keep both files if you want to reopen the design and its calculated results later.
+
+## Feedback and contributions
+
+MagCAD grows alongside my research and the problems encountered while using it. If something behaves unexpectedly, or you have an idea that would make it more useful, please [open an issue](https://github.com/CaioBelle/Magnetic-CAD-Playground/issues). A small example project, the steps to reproduce the behaviour and a screenshot are especially helpful.
+
+**Created by Caio Belle.** Thanks to the Radia authors and maintainers for making the calculation engine available, and to [Three.js](https://threejs.org/) for the browser-based 3D tools.
