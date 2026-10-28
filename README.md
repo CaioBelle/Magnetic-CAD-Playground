@@ -1,192 +1,46 @@
-# Magnetic CAD Playground
+# MagCAD v6.4.0-rc.1
 
-A lightweight browser CAD for building magnetic systems with permanent magnets and coils, visualizing them in 3D, generating **Radia** simulations, and creating clean technical drawings.
+Release candidate prepared on 28 October 2026. Open `MagneticCAD.html` in your desktop browser, or double-click `Open_MagCAD.cmd` on Windows. Three.js 0.180.0 is loaded from jsDelivr; internet access is required. Python/Radia is not bundled.
 
-Current stable version: **v5.5**
+The `.magcad` JSON schema remains version 6. The `.mfield` binary format remains MCFIELD1: existing solved files do not need regeneration for the viewer features.
 
-The `offline` branch contains a fully local Three.js runtime variant. The main branch keeps the simple direct-open workflow.
+## CAD and selection
 
-## Run
+- Ctrl/Cmd-click toggles selection. In the feature tree, Shift-click selects a range; Ctrl/Cmd+Shift-click adds that range to the existing selection.
+- Multiselections share applicable property fields. Mixed values remain unchanged until that field is edited. Move/rotate uses an editable common pivot.
+- Revolve about axis acts on **one body**, with alternating N/S and simple Halbach options. The simple Halbach mode is intended for cubes; it physically rotates bodies, so other shapes can change footprint.
+- Circular pattern acts on a **multiselection**, copying the entire structure with its relative orientations and polarities. Linear pattern supports either one body or a selection.
+- CAD and Figure Studio drawing subdivisions are configured independently of Radia discretization.
+- Balanced N/S sphere spacing and thickness-aware cylinder clearance are retained. Alternating polarity does not imply identical gaps.
 
-Open `MagneticCAD.html` in **Edge** or **Chrome**. No installation is required. Internet access is needed only to load the pinned Three.js modules used by the main build.
+## Results viewer
 
-## Main features
+The left sidebar contains configuration first, followed by a collapsed Objects list.
 
-- Permanent magnets: cuboid, cylindrical/disc, and spherical-shell segment
-- Coils: annular, racetrack, infinite line, and solenoid
-- 3D move / rotate / resize tools
-- Circular pattern, linear pattern, mirror, spherical lattice, and spherical coverage
-- Editable polar-ring spherical layouts with fixed-count position optimization
-- N/S checkerboard and alternating spherical topologies with even-parity constraints
-- Undo / redo
-- Save, open, and import `.magcad` projects
-- Force and torque visualization
-- Radia field export and `.mfield` Results viewer
-- Figure Studio with SVG / PNG export
+**Arrows / Streamlines:** arrows display the selected component; streamlines always follow the full saved B vector. Streamline colour represents |B| in teslas, using a linear scale over the displayed lines. Density is Sparse, Medium or Dense. Lines are integrated through interpolated saved vectors, with finite tracing limits; their density is not a quantitative flux measure.
 
-## Spherical geometries — v5.5
+**Field coordinates:** Cartesian Bx/By/Bz, cylindrical Br/Btheta/Bz or spherical Br/Btheta/Bphi. Cylindrical theta is azimuth about global Z, from +X toward +Y. Spherical theta is the polar angle from +Z; phi is azimuth. A custom coordinate origin is available. Undefined components on the axis/origin are omitted.
 
-v5.5 adds the spherical-motor workflow:
+**1D profiles:** choose a line or circumference in the current XY/XZ/YZ slice. Circle centre and radius use millimetres. Angle starts along the slice's horizontal axis and increases toward its vertical axis. Saved Cartesian vectors are interpolated before component projection; points outside the saved volume appear as gaps.
 
-- Editable spherical-shell PM primitive: inner radius, radial thickness, horizontal/vertical angular span, and magnetization mode
-- Local **Spherical lattice** for shell segments
-- **Spherical coverage** for shell or equal-size circular PMs
-- Selected magnet is the 0° polar reference; full-sphere layouts include the fixed 180° opposite polar piece
-- Intermediate polar angles and magnet counts remain editable
-- **Optimize positions** preserves user-entered ring populations; **Auto layout** regenerates the topology
-- Alternating layouts require even populations on intermediate rings and an even number of intermediate rings
-- Checkerboard / around-ring / ring-to-ring polarity patterns
-- N/S colors follow actual magnetization in the CAD scene, previews, and Figure Studio
+**Sampling bounds:** the quick-field width sets plane span and cube side about the global origin. The Radia solve dialog has its own centre/dimensions and matching preview outline.
 
-## Radia workflow
+## Figure Studio
 
-Magnetic calculations use [Radia](https://github.com/ochubar/Radia), ESRF's 3D magnetostatics code, through its Python interface.
+Overall style remains shared across views; per-view colours, legend, custom force anchors, visibility, layers and view box remain independent and save in `.magcad`. Imported `.mfield` data remains external. Opening a replacement CAD project clears the prior project's imported Figure Studio field; import the appropriate field again. Merging and undo do not intentionally discard it.
 
-Magnetic CAD generates a Python solver directly from the CAD scene:
+## Validation
 
-- Cuboid PM → native `rad.ObjRecMag`
-- Cylindrical PM → native `rad.ObjCylMag`
-- Spherical-shell PM → convergent convex `rad.ObjPolyhdr` discretization
+See `QA_REPORT.md` for evidence and limits, and `LOCAL_SMOKE_TEST.md` before promoting this candidate to a stable tag. No live browser/WebGL run or fresh Radia solve was performed during this audit. The earlier racetrack near-PM force-arrow report remains unresolved: Figure Studio leg forces use the conceptual CAD field, not the imported Radia field.
 
-For spherical-shell magnets, each angular cell is split into two convex triangular conical frusta. Radial magnetization is assigned per frustum from its spherical centroid direction. PM-fidelity metadata and an optional 2× discretization spot-check are available for quantitative work.
+Run the offline suite with Node.js (tested on Node 24):
 
-1. Build the magnetic scene.
-2. Click **Radia solve…**.
-3. Define the field box and resolution.
-4. Download the generated `*_radia_solve.py`.
-5. Run it in a Python environment with **Radia** installed.
-6. Open the generated `.mfield` with **Results viewer**.
+```sh
+node qa/run.cjs
+python -m py_compile qa/generated_solver.py
+python qa/check_clearance.py
+```
 
-The `.mfield` stores the sampled permanent-magnet field, exported source geometry, PM-fidelity information, and calculated coil loads. Coil force and torque are obtained by numerical integration of `J × B` over the conductor volume.
+The last command requires NumPy and SciPy. Static analysis uses Acorn bundled inside Node when available; otherwise install `acorn` for that check. The tests use lightweight math/DOM/scene fixtures and do not replace browser or solver validation.
 
-The `magnetics` branch extends this workflow with straight-line magnetic-field integrals using `rad.FldInt()`, including independently configurable integration and scan directions.
-
-## Results and Figure Studio
-
-- Results reconstructs the actual Radia-source geometry used for the solve, including faceted spherical PMs
-- Field arrows, slices/profiles, force, and torque loads
-- Figure Studio: top/front/right/isometric views, object styling/layers, magnetization/current arrows, Radia B-field overlays, force/torque arrows, configurable legend, SVG and PNG export
-
-## Physics scope
-
-- The exported magnetic field is generated by permanent magnets.
-- Coil force and torque use `J × B`.
-- Coil self-field and coil-to-coil forces are intentionally omitted.
-- Quick CAD field/load visuals are conceptual; `.mfield` is the Radia solver output.
-
-## Files
-
-- `MagneticCAD.html` — application
-- `README.md` — this file
-- `magneticcad_icon.ico` / `magneticcad_icon.png` — optional shortcut icons
-- `.magcad` — saved CAD project
-- `.mfield` — Radia result file
-
-Stable development milestones are preserved as Git tags. See `VERSION_HISTORY.md` and the repository tags for the complete history.
-
-
-### Geometric checkerboard
-
-For spherical coverage, the checkerboard polarity mode is geometric rather than index-based. Each even-population latitude ring alternates N/S internally, and its starting polarity is chosen from the actual nearest neighbours on the previous latitude ring. This preserves the intended N-S / S-N propagation when adjacent rings have different populations or azimuth phases.
-
-
-### v5.5 checkerboard hotfix 2
-
-- Restores spherical-shell checkerboard to the original working `(ring + magnet)` alternation.
-- Cylindrical spherical coverage now has its own checkerboard implementation.
-- For circular PMs, checkerboard mode jointly searches each ring's azimuth phase and N/S starting polarity while preserving the polar angles, ring populations and requested magnet clearance.
-- This addresses cases where individually alternating rings still formed same-pole meridian bands because their packing phases were offset.
-
-
-## Perfect N/S sphere generator
-
-The group toolbar now contains **Perfect N/S sphere**, a topology-oriented full-sphere generator.
-
-Instead of latitude rings, it uses the surface vertices of a regular cube grid projected radially onto a sphere. The original integer grid is bipartite: every grid edge changes `(i + j + k) mod 2`. The generated permanent magnets therefore alternate **N/S on every horizontal and vertical lattice connection**, including across the six projected cube-face seams.
-
-- Circular PM mode keeps one disc radius and thickness for every generated magnet.
-- Spherical-shell mode keeps one shell thickness and nominal angular cell span.
-- Sphere centre, sphere radius and requested minimum edge gap are explicit.
-- Auto density selects the densest grid subdivision that satisfies the conservative magnet-footprint + gap condition.
-- The selected PM is used as the template and becomes one body of the generated sphere.
-- All generated bodies remain normal Magnetic CAD PM objects, so save/load, Figure Studio, Radia export and Results work without a special solver path.
-
-The existing **Spherical lattice** and **Spherical coverage** operations remain unchanged.
-
-## Figure Studio force-arrow anchoring
-
-- Figure Studio force arrows support an optional custom global X/Y/Z anchor point, independently of the CAD load calculation.
-
-- Figure Studio legend titles automatically wrap to multiple lines when they exceed the legend box width.
-
-
-### Figure Studio — racetrack force explanations
-
-- Racetrack coils can optionally show the force contribution of each straight active segment together with their vector resultant `Fres`.
-- The two active-segment contributions use the same lightweight CAD field model and a thin-wire `I dℓ × B` line integration. Curved returns are intentionally excluded from this explanatory decomposition.
-- Every force/torque arrow can have an editable **Legend name**. A custom arrow colour or custom legend name automatically adds that individual arrow to the legend; racetrack segment-force arrows are listed automatically when the decomposition is enabled.
-- Cuboid PM side views now colour visible top/bottom pole boundary edges with the selected N/S colours, making the pole orientation readable even when the pole faces themselves are edge-on.
-
-
-### Figure Studio — legend sizing and load-row replacement
-
-- A custom colour or custom legend name on a main force/torque arrow now **replaces** that arrow's default legend identity. The default `F…` / `M…` row remains only when at least one visible main arrow still uses the global legend style.
-- Racetrack active-segment contributions remain separate rows because they represent genuinely different force vectors.
-- Legend sizing is split into **Horizontal size** and **Vertical size**. Horizontal size widens the legend independently for long labels; vertical size controls text/symbol size, row spacing and total height.
-
-
-### Figure Studio — individual coil legend entries
-
-- Recolouring an individual coil now adds that coil to the legend using its individual colour.
-- Each selected coil has an editable **Legend name**. Until one is entered, the CAD object name is used for its individual legend row.
-- The generic **Coil** row remains while at least one visible coil has no explicit legend name. Once every visible coil has a legend name, the generic row disappears and only the named coil entries remain.
-- **Use global style for this object** removes the individual coil legend identity together with the other object overrides.
-
-### Radia script filename
-
-The generated Python solver now follows the `.mfield` result basename. For example, `motor_test.mfield` generates `motor_test.py`.
-
-### Figure Studio view-state persistence
-
-- Figure Studio now remembers its working state when you leave and come back later in the same CAD session.
-- The state is stored **per Figure Studio view** (`Top`, `Front`, `Right`, and each `Isometric` variant).
-- Each saved view keeps its own global styling, legend settings, object visibility inside Figure Studio, manual drawing order, individual object/load overrides, zoom/pan view box, and export settings.
-- CAD project files (`.magcad`) now store the Figure Studio state as well, so reopening a saved project restores those view-specific figure settings.
-
-
-### MagCAD configuration panel
-
-The duplicated Top / Front / Iso buttons were removed from the far-right top toolbar; the view controls remain in the viewport toolbar. The new **Config** button opens a standard right-side MagCAD panel.
-
-Configurable CAD visualization parameters now include:
-- current-arrow count for annular, racetrack, line, and solenoid coils;
-- current-arrow visual size;
-- plane and volume sample counts behind Sparse / Dense / Very dense / Ultra dense quick-field presets;
-- quick-field plane width;
-- relative field threshold below which arrows are hidden;
-- quick-field arrow size.
-
-These settings affect only the interactive conceptual CAD preview. Radia solve discretization remains independent. The configuration is stored in `.magcad` project files.
-
-- Figure Studio legend titles now support longer text and manual multi-line editing through a textarea. Explicit line breaks are preserved and additional wrapping still happens automatically when needed.
-
-
-### Figure Studio persistence — registry v2
-
-Figure Studio persistence was rebuilt to preserve the original clean drawing behaviour while keeping save/restore support:
-
-- **Overall config is global** across Top / Front / Right / every Isometric view: style preset, line width, fill opacity, global colours, racetrack default, background/transparency and export dimensions/PNG scale.
-- **Per-view state** stores only view-specific content: Figure Studio visibility, automatic/manual layer order, individual object/load overrides, force anchors, legend state, field slice controls, and zoom/pan view box.
-- A newly opened view starts with **automatic depth ordering** and does not inherit another projection's manual layer order or individual styling.
-- Closing and reopening Figure Studio keeps the current state in-session; `.magcad` saves the global config and every per-view state.
-- Persistent CAD object IDs are now uniqueness-checked. Pattern/group clones and merged projects receive fresh IDs, preventing Figure Studio style/layer registry collisions.
-- Older Figure Studio registry-v1 project data is migrated automatically to the new global + per-view structure.
-
-### Figure Studio registry stability pass
-
-Figure Studio persistence is split into two layers:
-
-- **Overall config (shared by every view):** style preset, visible-line thickness, fill opacity, default current-arrow count, default racetrack representation, all global colours, background/transparency, export width/height, and PNG scale.
-- **Per-view registry:** Top, Front, Right, and each Isometric variant independently keep content visibility, legend, individual object/load styling, custom force anchors, manual layer order, zoom/pan, and field-view presentation.
-
-The renderer itself is kept aligned with the pre-registry Figure Studio implementation. New views start in automatic depth ordering. Legacy registry-v1 projects are migrated with automatic depth ordering as a safety repair, while their useful colours, visibility, legends, anchors, and individual styling are retained. Persistent object IDs are unique across clones, patterns, imports, and project reloads.
+`COMMIT_MESSAGE.txt` contains the proposed Git commit message. No Git commit, push or publication has been performed.
