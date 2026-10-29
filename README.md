@@ -10,8 +10,12 @@ The idea is simple: build a scene visually, explore it, and take it further with
 
 ## Getting started
 
+To keep the repository :
+
 1. Download the repository using **Code → Download ZIP**, or clone it.
 2. Extract the files.
+
+Or only download and : 
 3. Open `MagneticCAD.html` in a modern desktop browser, such as Chrome or Edge.
 
 There is no application installation or build step. The main build loads Three.js from a CDN, so an internet connection is needed to load those modules. Python and Radia are only needed if you want to run the exported calculations.
